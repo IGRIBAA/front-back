@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ajouter un usager Ri2S</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 text-gray-800 p-8">
+  <div class="max-w-3xl mx-auto bg-white p-6 rounded shadow-xl">
+    <h1 class="text-2xl font-bold mb-6 text-center">Ajouter un usager Ri2S</h1>
+
+    <form method="POST" action="{% url 'gestion:ajouter_usager_ri2s' %}" id="usagerForm" novalidate>
+      {% csrf_token %}
+
+      <!-- Type d'usager -->
+      <div class="mb-4">
+        <label class="block font-semibold mb-1">Type d'usager <span class="text-red-500">*</span></label>
+        <label><input type="radio" name="type_usager" value="pro" required onchange="toggleChamps('pro')"> Professionnel</label>
+        <label class="ml-4"><input type="radio" name="type_usager" value="nonpro" required onchange="toggleChamps('nonpro')"> Non professionnel</label>
+        <p class="text-red-600 text-sm hidden" id="type_usager_error">Veuillez sélectionner un type d'usager.</p>
+      </div>
+
+      <!-- Nom -->
+      <div class="mb-4">
+        <label class="block">Nom <span class="text-red-500">*</span></label>
+        <input type="text" name="nom" id="nom" required class="w-full border rounded p-2" oninput="validateNomPrenom(this)">
+        <p class="text-red-600 text-sm hidden" id="nom_error">Le nom doit contenir uniquement des lettres (min. 2).</p>
+      </div>
+
+      <!-- Prénom -->
+      <div class="mb-4">
+        <label class="block">Prénom <span class="text-red-500">*</span></label>
+        <input type="text" name="prenom" id="prenom" required class="w-full border rounded p-2" oninput="validateNomPrenom(this)">
+        <p class="text-red-600 text-sm hidden" id="prenom_error">Le prénom doit contenir uniquement des lettres (min. 2).</p>
+      </div>
+
+      <!-- Téléphone -->
+      <div class="mb-4">
+        <label class="block">Téléphone <span class="text-red-500">*</span></label>
+        <input type="text" name="telephone" id="telephone" required class="w-full border rounded p-2" oninput="validateTelephone(this)">
+        <p class="text-red-600 text-sm hidden" id="telephone_error">Numéro invalide. Entrez au moins 10 chiffres.</p>
+      </div>
+
+      <!-- Email -->
+      <div class="mb-4">
+        <label class="block">Email <span class="text-red-500">*</span></label>
+        <input type="email" name="email" id="email" required class="w-full border rounded p-2" oninput="validateEmail(this)">
+        <p class="text-red-600 text-sm hidden" id="email_error">Format d'email invalide. Utilisez une adresse valide (ex. exemple@mail.com).</p>
+      </div>
+
+      <!-- Professionnel uniquement -->
+      <div class="champ-pro hidden">
+        <div class="mb-4">
+          <label class="block">Profession <span class="text-red-500">*</span></label>
+          <input type="text" name="profession" id="profession" class="w-full border rounded p-2" oninput="validateTexte(this)">
+          <p class="text-red-600 text-sm hidden" id="profession_error">La profession doit contenir uniquement des lettres.</p>
+        </div>
+        <div class="mb-4">
+          <label class="block">Structure <span class="text-red-500">*</span></label>
+          <input type="text" name="structure" id="structure" class="w-full border rounded p-2">
+          <p class="text-red-600 text-sm hidden" id="structure_error">Structure requise.</p>
+        </div>
+      </div>
+
+      <!-- Non professionnel uniquement -->
+      <div class="champ-nonpro hidden">
+        <div class="mb-4">
+          <label class="block">Date de naissance <span class="text-red-500">*</span></label>
+          <input type="date" name="date_naissance" id="date_naissance" class="w-full border rounded p-2">
+          <p class="text-red-600 text-sm hidden" id="date_naissance_error">Date de naissance requise.</p>
+        </div>
+        <div class="mb-4">
+          <label class="block">Code postal <span class="text-red-500">*</span></label>
+          <input type="text" name="code_postal" id="code_postal" class="w-full border rounded p-2" oninput="validateCodePostal(this)">
+          <p class="text-red-600 text-sm hidden" id="code_postal_error">Code postal invalide. Entrez 5 chiffres.</p>
+        </div>
+      </div>
+
+      <!-- Sexe -->
+      <div class="mb-4">
+        <label class="block">Sexe <span class="text-red-500">*</span></label>
+        <select name="sexe" required class="w-full border rounded p-2">
+          <option value="">Choisir...</option>
+          <option value="H">Homme</option>
+          <option value="F">Femme</option>
+        </select>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex justify-end gap-4 mt-6">
+        <a href="{% url 'gestion:menu' %}" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Annuler</a>
+        <button type="submit" id="submitBtn" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    const form = document.getElementById("usagerForm");
+
+    function toggleChamps(type) {
+      document.querySelectorAll(".champ-pro").forEach(el => {
+        el.classList.toggle("hidden", type !== 'pro');
+        el.querySelectorAll("input").forEach(inp => inp.required = type === 'pro');
+      });
+      document.querySelectorAll(".champ-nonpro").forEach(el => {
+        el.classList.toggle("hidden", type !== 'nonpro');
+        el.querySelectorAll("input").forEach(inp => inp.required = type === 'nonpro');
+      });
+    }
+
+    function validateNomPrenom(input) {
+      const regex = /^[A-Za-zÀ-ÿ\-\s]{2,}$/;
+      toggleError(input, regex);
+    }
+
+    function validateEmail(input) {
+      const regex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+      toggleError(input, regex);
+    }
+
+    function validateTelephone(input) {
+      const regex = /^[0-9]{10,}$/;
+      toggleError(input, regex);
+    }
+
+    function validateCodePostal(input) {
+      const regex = /^[0-9]{5}$/;
+      toggleError(input, regex);
+    }
+
+    function validateTexte(input) {
+      const regex = /^[A-Za-zÀ-ÿ\s]+$/;
+      toggleError(input, regex);
+    }
+
+    function toggleError(input, regex) {
+      const errorElement = document.getElementById(input.name + "_error");
+      const isValid = regex.test(input.value.trim());
+      if (!isValid) {
+        errorElement.classList.remove("hidden");
+        input.classList.add("border-red-500");
+      } else {
+        errorElement.classList.add("hidden");
+        input.classList.remove("border-red-500");
+      }
+    }
+
+    function checkRequiredFields() {
+      let valid = true;
+      const visibles = form.querySelectorAll("input[required], select[required]");
+
+      // Vérifie le type d'usager sélectionné
+      const typeUsager = form.querySelector('input[name="type_usager"]:checked');
+      if (!typeUsager) {
+        document.getElementById("type_usager_error").classList.remove("hidden");
+        valid = false;
+      } else {
+        document.getElementById("type_usager_error").classList.add("hidden");
+      }
+
+      visibles.forEach(input => {
+        if (!input.closest(".hidden") && input.value.trim() === "") {
+          const errorElement = document.getElementById(input.name + "_error");
+          if (errorElement) errorElement.classList.remove("hidden");
+          input.classList.add("border-red-500");
+          valid = false;
+        }
+      });
+      return valid;
+    }
+
+    form.addEventListener("submit", function(e) {
+      const isValid = checkRequiredFields();
+
+      if (!isValid) {
+        e.preventDefault(); // Empêche l’envoi si des champs sont invalides
+        document.querySelector('html, body').scrollTop = 0;
+      } 
+    });
+
+
+
+  </script>
+</body>
+</html>

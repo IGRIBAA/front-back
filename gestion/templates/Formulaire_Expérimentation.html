@@ -7,485 +7,317 @@
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
 <body class="bg-gray-100 text-gray-800">
-  <div class="max-w-xl mx-auto mt-10 p-8 bg-white shadow-2xl rounded-xl">
+  <div class="max-w-4xl mx-auto mt-10 p-8 bg-white shadow-2xl rounded-xl">
     <h1 class="text-2xl font-bold text-center mb-6">Ajouter une expérimentation</h1>
 
-    <form id="formExperimentation" method="POST" action="http://127.0.0.1:8000/create-experimentation/" enctype="multipart/form-data">
-        {% csrf_token %}
-      <div>
-        <label class="block font-semibold">Nom de l'expérimentation <span class="text-red-500">*</span></label>
-        <input type="text" name="nom" required class="w-full border rounded p-2">
-      </div>
+    <form id="formExperimentation" method="POST" action="{% url 'gestion:create_experimentation' %}" enctype="multipart/form-data">
+      {% csrf_token %}
 
-      <div>
-        <label class="block font-semibold">Entreprise partenaire <span class="text-red-500">*</span></label>
-        <input type="text" name="entreprise" required class="w-full border rounded p-2">
-      </div>
-
-      <div class="border-t pt-4">
-        <div class="flex items-center justify-between mb-2">
-          <h2 class="text-lg font-semibold">Définir les cohortes</h2>
-          <button type="button" onclick="ajouterCohorte()" class="bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-1 rounded">+ Ajouter une cohorte</button>
+      <!-- ÉTAPE 1 : Infos générales -->
+      <fieldset id="infosGenerales">
+        <div>
+          <label class="block font-semibold">Nom de l'expérimentation <span class="text-red-500">*</span></label>
+          <input type="text" name="nom" required class="w-full border rounded p-2">
         </div>
-        <div id="cohortesContainer" class="space-y-4">
-          <div class="cohorte-item">
-            <label class="block font-semibold">Nom de la cohorte <span class="text-red-500">*</span></label>
-            <input type="text" name="cohorte[]" required class="w-full border rounded p-2 mb-2">
 
-            <label class="block font-semibold">Date de début de la cohorte <span class="text-red-500">*</span></label>
-            <input type="date" name="cohorte_date_debut[]" required class="w-full border rounded p-2 mb-2">
-
-            <label class="block font-semibold">Date de fin de la cohorte</label>
-            <input type="date" name="cohorte_date_fin[]" class="w-full border rounded p-2">
-            <hr class="mt-4">
-          </div>
+        <div>
+          <label class="block font-semibold">Entreprise partenaire <span class="text-red-500">*</span></label>
+          <input type="text" name="entreprise" required class="w-full border rounded p-2">
         </div>
-      </div>
 
-      <div class="border-t pt-4">
-        <h2 class="text-lg font-semibold mb-2">Dates de l'expérimentation</h2>
-        <div class="space-y-4">
-          <div>
-            <label class="block font-semibold">Date de début <span class="text-red-500">*</span></label>
-            <input type="date" name="date_debut" required class="w-full border rounded p-2">
-          </div>
-          <div>
-            <label class="block font-semibold">Date de fin (prévue ou effective)</label>
-            <input type="date" name="date_fin" class="w-full border rounded p-2">
-          </div>
+        <div class="mt-4">
+          <h2 class="font-semibold mb-2">Définir les cohortes</h2>
+          <button type="button" onclick="ajouterCohorte()" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded">+ Ajouter une cohorte</button>
+          <div id="cohortesContainer" class="space-y-4 mt-2"></div>
         </div>
-      </div>
+        <div class="mt-4">
+          <label class="block font-semibold">Date de début <span class="text-red-500">*</span></label>
+          <input type="date" name="date_debut" required class="w-full border rounded p-2">
 
-      <div class="border-t pt-4">
-        <h2 class="text-lg font-semibold mb-2">Contact référent</h2>
-        <div class="space-y-4">
-          <div>
-            <label class="block font-semibold">Nom du contact</label>
-            <input type="text" id="contactNom" name="contactNom" required class="w-full border rounded p-2" oninput="validerNomContact(this)">
-            <div class="text-red-600 text-sm message-erreur mt-1"></div>
-          </div>
-          <div>
-            <label class="block font-semibold">Email</label>
-            <input type="text" id="contactEmail" name="contactEmail" required class="w-full border rounded p-2" oninput="validerEmailContact(this)">
-            <div class="text-red-600 text-sm message-erreur mt-1"></div>
-          </div>
-          <div>
-            <label class="block font-semibold">Téléphone</label>
-            <input type="text" id="contactTel" name="contactTel" required class="w-full border rounded p-2" oninput="validerTelContact(this)">
-            <div class="text-red-600 text-sm message-erreur mt-1"></div>
-          </div>
+          <label class="block font-semibold mt-2">Date de fin</label>
+          <input type="date" name="date_fin" class="w-full border rounded p-2">
         </div>
-      </div>
+
+        <div class="mt-4">
+          <label class="block font-semibold">Nom du contact</label>
+          <input type="text" name="contactNom" required class="w-full border rounded p-2">
+
+          <label class="block font-semibold mt-2">Email</label>
+          <input type="email" name="contactEmail" required class="w-full border rounded p-2">
+
+          <label class="block font-semibold mt-2">Téléphone</label>
+          <input type="text" name="contactTel" required class="w-full border rounded p-2">
+        </div>
+
+        <div class="mt-4">
+          <label class="block font-semibold">Remarques</label>
+          <textarea name="remarques" rows="3" class="w-full border rounded p-2"></textarea>
+        </div>
+
+        <div class="flex justify-end mt-6">
+          <button type="button" onclick="afficherCibles()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Suivant ➔</button>
+        </div>
+      </fieldset>
+
+      <!-- ÉTAPE 2 : Cibles et Statuts -->
+      <fieldset id="zoneCibles" class="hidden">
+        <h2 class="text-xl font-semibold mb-4">Définir les cibles de l’expérimentation</h2>
+
+        <div class="mb-4">
+          <label class="block font-semibold">Sélectionner les types de cibles :</label>
+          <label><input type="checkbox" name="cibles[]" value="senior" onchange="toggleCible('senior')"> Seniors</label>
+          <label><input type="checkbox" name="cibles[]" value="aidant" onchange="toggleCible('aidant')"> Aidants</label>
+          <label><input type="checkbox" name="cibles[]" value="pro" onchange="toggleCible('pro')"> Professionnels</label>
+        </div>
+        <!-- SECTION : DÉFINITION DES SECTIONS DYNAMIQUES -->
+        <div class="mt-6">
+          <h2 class="text-xl font-semibold mb-2">Sections personnalisées</h2>
+          <button type="button" onclick="ajouterSection()" class="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 mb-4">+ Ajouter une section</button>
+          <div id="sectionsContainer" class="space-y-4"></div>
+        </div>
+        <div id="containerStatuts"></div>
 
 
-      <div>
-        <label class="block font-semibold">Remarques</label>
-        <textarea name="remarques" rows="3" class="w-full border rounded p-2"></textarea>
-      </div>
 
-      <div class="border-t pt-4">
-      <h2 class="text-lg font-semibold mb-2">Définition des champs de données liées à l'expérimentation</h2>
-      <div id="customFieldsContainer" class="space-y-4"></div>
-      <button type="button" onclick="ajouterChampPerso()" class="mt-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-blue-700">
-        + Ajouter un champ
-      </button>
-    </div>
-  
-
-      <div class="flex justify-end gap-4 pt-4">
-        <button type="reset" class="bg-gray-300 text-black px-4 py-2 rounded hover:bg-gray-400">Annuler</button>
-        <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Enregistrer</button>
-      </div>
+        <div class="flex justify-between mt-6">
+          <button type="button" onclick="retourInfos()" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">← Retour</button>
+          <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Créer l’expérimentation</button>
+        </div>
+      </fieldset>
     </form>
   </div>
 
   <script>
+    function afficherCibles() {
+      document.getElementById('infosGenerales').classList.add('hidden');
+      document.getElementById('zoneCibles').classList.remove('hidden');
+    }
+
+    function retourInfos() {
+      document.getElementById('zoneCibles').classList.add('hidden');
+      document.getElementById('infosGenerales').classList.remove('hidden');
+    }
+
     function ajouterCohorte() {
-  const container = document.getElementById("cohortesContainer");
-  const bloc = document.createElement("div");
-  bloc.classList.add("cohorte-item");
-  bloc.innerHTML = `
-    <label class="block font-semibold">Nom de la cohorte <span class="text-red-500">*</span></label>
-    <input type="text" name="cohorte[]" required class="w-full border rounded p-2 mb-2">
-
-    <label class="block font-semibold">Date de début de la cohorte <span class="text-red-500">*</span></label>
-    <input type="date" name="cohorte_date_debut[]" required class="w-full border rounded p-2 mb-2">
-
-    <label class="block font-semibold">Date de fin de la cohorte</label>
-    <input type="date" name="cohorte_date_fin[]" class="w-full border rounded p-2">
-    <hr class="mt-4">
-  `;
-  container.appendChild(bloc);
-}
-
-
-    function ajouterChampPerso() {
-  const container = document.getElementById("customFieldsContainer");
-  const div = document.createElement("div");
-  div.className = "grid grid-cols-1 md:grid-cols-3 gap-4 items-start relative group border p-4 rounded bg-gray-50";
-
-  div.innerHTML = `
-    <input type="text" name="custom_field_name[]" placeholder="Nom du champ..." required 
-           class="border rounded p-2" pattern="[a-zA-Z0-9_]+" title="Lettres, chiffres et underscores seulement">
-    
-    <select name="custom_field_type[]" class="border rounded p-2" onchange="changerTypeChamp(this)" required>
-      <option value="">Type de champ...</option>
-      <option value="text">Texte</option>
-      <option value="date">Date</option>
-      <option value="number">Nombre</option>
-      <option value="file">Fichier</option>
-      <option value="select">Liste déroulante</option>
-    </select>
-    
-    <div class="champ-input-wrapper"></div>
-
-    <button type="button" onclick="this.closest('div').remove()" 
-      class="absolute -top-3 -right-3 bg-red-600 text-white rounded-full w-7 h-7 flex items-center justify-center shadow hover:bg-red-700"
-      title="Supprimer ce champ">
-      &times;
-    </button>
-  `;
-
-  container.appendChild(div);
-}
-
-
-    function changerTypeChamp(select) {
-      const wrapper = select.parentElement.querySelector(".champ-input-wrapper");
-      const type = select.value;
-
-      if (["text", "date", "number", "file"].includes(type)) {
-        wrapper.innerHTML = `<input type="${type}" class="border rounded p-2 w-full" required>`;
-      } else if (type === "select") {
-        const id = `select-options-${Date.now()}`; // identifiant unique pour le champ
-
-        wrapper.innerHTML = `
-          <div class="space-y-2" id="${id}">
-            <div class="option-line flex items-center gap-2">
-              <input type="text" class="border rounded p-2 w-full" placeholder="Option 1" required>
-              <button type="button" onclick="supprimerOption(this)" class="text-red-600 hover:text-red-800 text-lg font-bold">&times;</button>
-            </div>
-            <div class="option-line flex items-center gap-2">
-              <input type="text" class="border rounded p-2 w-full" placeholder="Option 2" required>
-              <button type="button" onclick="supprimerOption(this)" class="text-red-600 hover:text-red-800 text-lg font-bold">&times;</button>
-            </div>
-          </div>
-          <button type="button" onclick="ajouterOption('${id}')" class="mt-2 px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">+ Ajouter une option</button>
-        `;
-      } else {
-        wrapper.innerHTML = "";
-      }
-    }
-
-
-    function creerSelectDepuisTexte(input) {
-      const options = input.value.split(",").map(opt => opt.trim()).filter(Boolean);
-      const wrapper = input.parentElement;
-
-      if (options.length < 2) {
-        alert("❌ Vous devez saisir au moins 2 options pour une liste déroulante.");
-        input.focus();
-        return;
-      }
-
-      const select = document.createElement("select");
-      select.className = "border rounded p-2 w-full";
-      options.forEach(opt => {
-        const option = document.createElement("option");
-        option.value = opt;
-        option.textContent = opt;
-        select.appendChild(option);
-      });
-
-      wrapper.innerHTML = "";
-      wrapper.appendChild(select);
-    }
-
-    function ajouterOption(id) {
-      const container = document.getElementById(id);
+      const container = document.getElementById("cohortesContainer");
       const div = document.createElement("div");
-      div.className = "option-line flex items-center gap-2 mt-1";
       div.innerHTML = `
-        <input type="text" class="border rounded p-2 w-full" placeholder="Nouvelle option" required>
-        <button type="button" onclick="supprimerOption(this)" class="text-red-600 hover:text-red-800 text-lg font-bold">&times;</button>
+        <input type="text" name="cohorte[]" placeholder="Nom de la cohorte" class="w-full border rounded p-2 mt-2">
+        <input type="date" name="cohorte_date_debut[]" class="w-full border rounded p-2 mt-2">
+        <input type="date" name="cohorte_date_fin[]" class="w-full border rounded p-2 mt-2">
+        <hr class="my-2">
       `;
       container.appendChild(div);
     }
 
-    function supprimerOption(button) {
-      const container = button.closest(".option-line");
-      const parent = button.closest("div[id]");
-      if (parent.querySelectorAll(".option-line").length <= 2) {
-        alert("⚠️ Une liste doit contenir au moins 2 options.");
-        return;
-      }
-      container.remove();
+    function toggleCible(cible) {
+      const container = document.getElementById('containerStatuts');
+      const existing = document.getElementById(`statut-bloc-${cible}`);
+      if (existing) return existing.remove();
+
+      const bloc = document.createElement('div');
+      bloc.id = `statut-bloc-${cible}`;
+      bloc.className = "border p-4 mt-4 rounded bg-gray-50";
+      bloc.innerHTML = `
+        <h3 class="text-lg font-semibold">Statuts pour ${cible}</h3>
+        <div id="statuts-${cible}" class="space-y-4"></div>
+        <button type="button" onclick="ajouterStatut('${cible}')" class="mt-2 bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">+ Ajouter un statut</button>
+      `;
+      container.appendChild(bloc);
     }
 
+    let indexStatutsParCible = {};
+    function ajouterStatut(cible) {
+      const container = document.getElementById(`statuts-${cible}`);
+      if (!indexStatutsParCible[cible]) indexStatutsParCible[cible] = 0;
+      const index = indexStatutsParCible[cible]++;
 
-
-document.getElementById("formExperimentation").addEventListener("submit", async function(e) {
-    e.preventDefault();
-    console.log("Début de la soumission du formulaire");
-
-    // Validate all fields first
-    console.log("Validation du formulaire en cours...");
-    if (!validateForm()) {
-      console.log("Validation échouée");
-      return;
+      const div = document.createElement("div");
+      div.className = "p-4 bg-white rounded shadow relative";
+      div.innerHTML = `
+        <label class="block font-semibold">Nom du statut *</label>
+        <input type="text" name="statuts_${cible}[]" required class="w-full border rounded p-2 mb-2">
+        <div data-cible="${cible}" data-index="${index}" class="champs-statut space-y-2"></div>
+        <button type="button" onclick="ajouterChampStatut(this)" class="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 mt-2">+ Champ</button>
+        <button type="button" onclick="this.closest('div').remove()" class="absolute top-2 right-2 text-red-600">&times;</button>
+      `;
+      container.appendChild(div);
     }
-    console.log("Validation réussie");
 
-    // Collect custom fields data
-    console.log("Collecte des champs personnalisés...");
-    const customFields = collectCustomFields();
-    console.log("Champs personnalisés collectés:", customFields);
+    function ajouterChampStatut(btn) {
+      const container = btn.parentElement.querySelector(".champs-statut");
+      const cible = container.getAttribute("data-cible");
+      const index = container.getAttribute("data-index");
 
-    // Create FormData object
-    console.log("Création de l'objet FormData...");
-    const formData = new FormData(this);
-    formData.append('custom_fields', JSON.stringify(customFields));
-    console.log("FormData préparé:", Array.from(formData.entries()));
+      const champWrapper = document.createElement("div");
+      champWrapper.className = "space-y-1 p-2 border rounded bg-white";
 
-    try {
-      console.log("Envoi de la requête POST à", this.action);
-      const response = await fetch(this.action, {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+      const idChamp = Date.now();  // pour générer un identifiant unique
+
+      champWrapper.innerHTML = `
+        <div class="grid grid-cols-4 gap-2 items-center">
+          <input type="text" name="champs_statut_${cible}_${index}[noms][]" placeholder="Nom du champ" required class="border p-2 rounded col-span-1">
+          
+          <select name="champs_statut_${cible}_${index}[types][]" onchange="gererTypeChamp(this, '${cible}', '${index}', '${idChamp}')" class="border p-2 rounded col-span-1">
+            <option value="text">Texte</option>
+            <option value="number">Nombre</option>
+            <option value="date">Date</option>
+            <option value="file">Fichier</option>
+            <option value="select">Liste déroulante</option>
+          </select>
+
+          <div id="optionsContainer_${idChamp}" class="col-span-2 hidden space-y-1">
+            <label class="text-sm text-gray-600">Options de la liste :</label>
+            <div id="selectOptions_${idChamp}" class="space-y-1"></div>
+            <button type="button" onclick="ajouterOption('${idChamp}')" class="text-sm text-blue-600 hover:underline">+ Ajouter une option</button>
+          </div>
+        </div>
+        <button type="button" onclick="this.parentElement.remove()" class="text-red-600 ml-2">Supprimer</button>
+      `;
+
+      container.appendChild(champWrapper);
+    }
+
+    document.getElementById('formExperimentation').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        //  Rendre visible toutes les sections pour éviter les erreurs "not focusable"
+        document.querySelectorAll('fieldset').forEach(fs => fs.classList.remove('hidden'));
+
+        const response = await fetch(this.action, {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await response.json();
+
+        if (data.success && data.redirect_url) {
+          window.location.href = data.redirect_url;
         }
-      });
 
-      console.log("Réponse reçue, statut:", response.status);
-      if (response.ok) {
-        const result = await response.json();
-        console.log("Résultat de la requête:", result);
-        if (result.success) {
-          console.log("Succès, redirection vers:", result.redirect_url);
-          window.location.href = `${result.redirect_url}?message=${encodeURIComponent(result.message)}`;
-        } else {
-          console.log("Erreur dans la réponse:", result.error);
-          showFormError(result.error);
-        }
-      } else {
-        console.error("Réponse non OK, statut:", response.status);
-        throw new Error('Network response was not ok');
-      }
-    } catch (error) {
-      console.error("Erreur lors de l'envoi du formulaire:", error);
-      showFormError("Une erreur s'est produite lors de l'envoi du formulaire.");
-    }
-  });
-function validateForm() {
-  console.log("=== DÉBUT VALIDATION ===");
-  let isValid = true;
-  const form = document.getElementById("formExperimentation");
-  
-  // Validation des champs contact
-  console.group("Validation des contacts");
-  const nom = document.getElementById('contactNom');
-  const email = document.getElementById('contactEmail');
-  const tel = document.getElementById('contactTel');
-  
-  console.log("Validation du nom de contact:", nom.value.trim() || "<vide>");
-  validerNomContact(nom);
-  console.log("Validation de l'email:", email.value.trim() || "<vide>");
-  validerEmailContact(email);
-  console.log("Validation du téléphone:", tel.value.trim() || "<vide>");
-  validerTelContact(tel);
-  
-  const contactErrors = [
-    nom.parentElement.querySelector(".message-erreur").textContent,
-    email.parentElement.querySelector(".message-erreur").textContent,
-    tel.parentElement.querySelector(".message-erreur").textContent
-  ].filter(msg => msg.trim() !== '');
-  
-  if (contactErrors.length) {
-    console.error("Erreurs contact:", contactErrors);
-    isValid = false;
-  } else {
-    console.log("Aucune erreur dans les champs contact");
-  }
-  console.groupEnd();
-
-  // Validation des champs requis
-  console.group("Validation des champs requis");
-  const requiredFields = form.querySelectorAll('[required]');
-  const missingFields = [];
-  
-  requiredFields.forEach(field => {
-    console.log(`Vérification du champ: ${field.name}, valeur: "${field.value.trim() || '<vide>'}"`);
-    if (!field.value.trim()) {
-      console.warn(`Champ requis manquant: ${field.name}`);
-      field.classList.add('border-red-500');
-      missingFields.push(field.name);
-      isValid = false;
-    } else {
-      field.classList.remove('border-red-500');
-    }
-  });
-  
-  if (missingFields.length) {
-    console.error("Champs requis manquants:", missingFields);
-  } else {
-    console.log("Tous les champs requis sont remplis");
-  }
-  console.groupEnd();
-
-  // Vérification des messages d'erreur affichés
-  console.group("Vérification des messages d'erreur");
-  const errorMessages = Array.from(form.querySelectorAll('.message-erreur'))
-    .filter(el => el.textContent.trim() !== '')
-    .map(el => el.textContent.trim());
-  
-  console.log(`Total erreurs détectées: ${errorMessages.length}`);
-  if (errorMessages.length) {
-    console.error("Messages d'erreur présents:", errorMessages);
-    isValid = false;
-  } else {
-    console.log("Aucun message d'erreur affiché");
-  }
-  console.groupEnd();
-
-  // Résultat final
-  if (!isValid) {
-    console.error("VALIDATION ÉCHOUÉE");
-    console.error("Résumé des erreurs:", {
-      contactErrors,
-      missingFields,
-      errorMessages
     });
-  } else {
-    console.log("VALIDATION RÉUSSIE");
+
+    let sectionIndex = 0;
+    function ajouterSection() {
+      const container = document.getElementById("sectionsContainer");
+      const div = document.createElement("div");
+      div.className = "border p-4 rounded bg-gray-50";
+      div.innerHTML = `
+        <label class="font-semibold block">Titre de la section</label>
+        <input type="text" name="sections[${sectionIndex}][titre]" required class="w-full border p-2 rounded mb-2">
+
+        <div id="champsSection_${sectionIndex}" class="space-y-2 mb-2"></div>
+        <button type="button" onclick="ajouterChampSection(${sectionIndex})" class="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">+ Champ</button>
+        <button type="button" onclick="this.parentElement.remove()" class="text-red-600 ml-4">Supprimer la section</button>
+      `;
+      container.appendChild(div);
+      sectionIndex++;
+    }
+
+      function ajouterChampSection(index) {
+        const champContainer = document.getElementById(`champsSection_${index}`);
+        const champ = document.createElement("div");
+        const champId = `champ_${index}_${Date.now()}`;
+        champ.className = "border p-4 rounded bg-white";
+        champ.innerHTML = `
+          <div class="mb-2">
+            <input type="text" name="sections[${index}][champs][]" placeholder="Nom du champ" required class="w-full border p-2 rounded mb-1">
+          </div>
+          <div class="mb-2">
+            <select name="sections[${index}][types][]" class="w-full border p-2 rounded type-select" data-champ-id="${champId}">
+              <option value="text">Texte</option>
+              <option value="number">Nombre</option>
+              <option value="date">Date</option>
+              <option value="file">Fichier</option>
+              <option value="select">Liste déroulante</option>
+            </select>
+          </div>
+          <div id="select-config-${champId}" class="hidden mt-2 space-y-2">
+            <div>
+              <label class="block font-semibold">➕ Options manuelles :</label>
+              <div id="manual-options-${champId}" class="space-y-1"></div>
+              <button type="button" onclick="ajouterOptionManuelle('${champId}', ${index})" class="text-sm text-blue-600">+ Ajouter une option</button>
+            </div>
+            <div class="mt-3">
+              <label class="block font-semibold">📡 Source dynamique :</label>
+              <select name="champs_statut_${cible}_${index}[types][]" onchange="gererTypeChamp(this, '${cible}', '${index}', '${idChamp}')" class="border p-2 rounded">
+                <option value="text">Texte</option>
+                <option value="number">Nombre</option>
+                <option value="date">Date</option>
+                <option value="file">Fichier</option>
+                <option value="select">Liste déroulante</option>
+              </select>
+            </div>
+            <div id="optionsContainer_${idChamp}" class="col-span-2 hidden space-y-1">
+              <label class="text-sm text-gray-600">Type de liste :</label>
+              <select name="champs_statut_${cible}_${index}[source_type][]" onchange="toggleOptionSource(this, '${idChamp}')" class="border p-2 rounded w-full">
+                <option value="manual">Manuelle</option>
+                <option value="cohortes">Cohortes</option>
+                <option value="aidants">Aidants</option>
+                <option value="usagers_pro">Usagers pro</option>
+              </select>
+
+              <div id="manualOptions_${idChamp}" class="space-y-1">
+                <label class="text-sm text-gray-600">Options manuelles :</label>
+                <div id="selectOptions_${idChamp}" class="space-y-1"></div>
+                <button type="button" onclick="ajouterOption('${idChamp}')" class="text-sm text-blue-600 hover:underline">+ Ajouter une option</button>
+              </div>
+            </div>
+
+          </div>
+          <button type="button" onclick="this.parentElement.remove()" class="text-red-600 mt-2">Supprimer</button>
+        `;
+        champContainer.appendChild(champ);
+      }
+      document.addEventListener('change', function (e) {
+      if (e.target.classList.contains('type-select')) {
+        const champId = e.target.dataset.champId;
+        const configDiv = document.getElementById(`select-config-${champId}`);
+        if (e.target.value === 'select') {
+          configDiv.classList.remove('hidden');
+        } else {
+          configDiv.classList.add('hidden');
+        }
+      }
+    });
+
+    function ajouterOptionManuelle(champId, sectionIndex) {
+      const container = document.getElementById(`manual-options-${champId}`);
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.name = `sections[${sectionIndex}][valeurs_manuelles_${champId}][]`;
+      input.placeholder = "Option...";
+      input.className = "w-full border p-2 rounded";
+      container.appendChild(input);
+    }
+    function gererTypeChamp(selectElement, cible, index, champId) {
+    const optionsDiv = document.getElementById(`optionsContainer_${champId}`);
+    if (selectElement.value === 'select') {
+      optionsDiv.classList.remove('hidden');
+    } else {
+      optionsDiv.classList.add('hidden');
+    }
   }
 
-  return isValid;
-}
-function collectCustomFields() {
-  const customFields = [];
-  document.querySelectorAll('#customFieldsContainer > div').forEach(div => {
-    const nameInput = div.querySelector('input[type="text"]');
-    const typeSelect = div.querySelector('select');
-    
-    if (nameInput && typeSelect && nameInput.value && typeSelect.value) {
-      const field = {
-        name: nameInput.value,
-        type: typeSelect.value,
-        options: []
-      };
-      
-      if (field.type === 'select') {
-        field.options = Array.from(div.querySelectorAll('.option-line input'))
-                          .map(i => i.value)
-                          .filter(v => v.trim() !== '');
-      }
-      
-      customFields.push(field);
+  function ajouterOption(champId) {
+    const container = document.getElementById(`selectOptions_${champId}`);
+    const div = document.createElement('div');
+    div.className = "flex gap-2 items-center";
+
+    div.innerHTML = `
+      <input type="text" name="select_options_${champId}[]" placeholder="Option" class="border p-2 rounded w-full">
+      <button type="button" onclick="this.parentElement.remove()" class="text-red-600">&times;</button>
+    `;
+    container.appendChild(div);
+  }
+  function toggleOptionSource(select, champId) {
+    const manualDiv = document.getElementById(`manualOptions_${champId}`);
+    if (select.value === 'manual') {
+      manualDiv.classList.remove('hidden');
+    } else {
+      manualDiv.classList.add('hidden');
     }
-  });
-  return customFields;
-}
-
-function showFormError(message) {
-  const form = document.getElementById("formExperimentation");
-  // Remove existing error messages
-  const existingErrors = form.querySelectorAll('.form-error-message');
-  existingErrors.forEach(error => error.remove());
-  
-  const errorDiv = document.createElement('div');
-  errorDiv.className = 'form-error-message bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4';
-  errorDiv.textContent = message;
-  form.prepend(errorDiv);
-  window.scrollTo(0, 0);
-}
-
-    // Validation pour les champs contact
-    function validerNomContact(input) {
-      const valeur = input.value.trim();
-      const regexNom = /^[A-Za-zÀ-ÿ \-']{2,}$/;
-      if (!regexNom.test(valeur)) {
-        setErreur(input, "Veuillez saisir un nom valide (lettres uniquement).");
-      } else {
-        clearErreur(input);
-      }
-    }
-
-    function validerEmailContact(input) {
-      const valeur = input.value.trim();
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valeur)) {
-        setErreur(input, "L'adresse e-mail semble incorrecte (ex: nom@exemple.com).");
-      } else {
-        clearErreur(input);
-      }
-    }
-
-    function validerTelContact(input) {
-      const valeur = input.value.trim();
-      if (!/^\d{10}$/.test(valeur)) {
-        setErreur(input, "Le téléphone doit contenir exactement 10 chiffres.");
-      } else {
-        clearErreur(input);
-      }
-    }
-
-    function setErreur(input, message) {
-      const msg = input.parentElement.querySelector(".message-erreur");
-      if (msg) {
-        msg.textContent = message;
-        input.classList.add("border-red-500");
-      }
-    }
-
-    function clearErreur(input) {
-      const msg = input.parentElement.querySelector(".message-erreur");
-      if (msg) {
-        msg.textContent = "";
-        input.classList.remove("border-red-500");
-      }
-    }
-
-    function validerNomContact(input) {
-      const valeur = input.value.trim();
-      const msg = input.parentElement.querySelector(".message-erreur");
-      const regexNom = /^[A-Za-zÀ-ÿ \-']{2,}$/;
-
-      if (!regexNom.test(valeur)) {
-        msg.textContent = "❌ Entrez un nom valide (au moins 2 lettres, lettres uniquement).";
-        input.classList.add("border-red-500");
-      } else {
-        msg.textContent = "";
-        input.classList.remove("border-red-500");
-      }
-    }
-
-    function validerEmailContact(input) {
-      const valeur = input.value.trim();
-      const msg = input.parentElement.querySelector(".message-erreur");
-
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valeur)) {
-        msg.textContent = "❌ Format e-mail invalide (ex : nom@exemple.com).";
-        input.classList.add("border-red-500");
-      } else {
-        msg.textContent = "";
-        input.classList.remove("border-red-500");
-      }
-    }
-
-    function validerTelContact(input) {
-      const valeur = input.value.trim();
-      const msg = input.parentElement.querySelector(".message-erreur");
-
-      if (!/^\d{10}$/.test(valeur)) {
-        msg.textContent = "❌ Le numéro doit contenir exactement 10 chiffres.";
-        input.classList.add("border-red-500");
-      } else {
-        msg.textContent = "";
-        input.classList.remove("border-red-500");
-      }
-    }
-
-
+  }
 
   </script>
 </body>

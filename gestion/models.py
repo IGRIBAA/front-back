@@ -1,6 +1,7 @@
 from django.db import models
 from django.core.validators import RegexValidator
-
+from django.views.decorators.csrf import csrf_exempt
+from django.db import models
 
 class Beneficiaire(models.Model):
     """
@@ -141,9 +142,6 @@ class Cohorte(models.Model):
 
 
 class ChampPersonnalise(models.Model):
-    """
-    Champs personnalisés pour les expérimentations générales.
-    """
     TYPE_CHOIX = [
         ('text', 'Texte'),
         ('date', 'Date'),
@@ -155,10 +153,14 @@ class ChampPersonnalise(models.Model):
     experimentation = models.ForeignKey(ExperimentationGenerale, on_delete=models.CASCADE, related_name='champs_perso')
     nom_champ = models.CharField(max_length=255)
     type_champ = models.CharField(max_length=20, choices=TYPE_CHOIX)
-    valeurs_possibles = models.TextField(blank=True, help_text="Séparer les valeurs par des virgules si 'select'")
+    valeurs_possibles = models.TextField(
+        blank=True,
+        help_text="Si 'select', séparer les options par des virgules OU indiquer 'aidants', 'usagers_pro', 'cohortes'"
+    )
 
     def __str__(self):
         return f"{self.nom_champ} ({self.type_champ})"
+
     
 
 class UsagerPro(models.Model):
@@ -186,3 +188,78 @@ class UsagerPro(models.Model):
 
     def __str__(self):
         return f"{self.prenom} {self.nom} - {self.profession}"
+    
+    # Ajouter à la suite de ton fichier models.py
+
+class CibleExperimentation(models.Model):
+    """
+    Cibles associées à une expérimentation générale (ex: seniors, professionnels, aidants).
+    """
+    CIBLES = [
+        ('seniors', 'Seniors'),
+        ('professionnels', 'Professionnels'),
+        ('aidants', 'Aidants'),
+    ]
+    experimentation = models.ForeignKey(ExperimentationGenerale, on_delete=models.CASCADE, related_name='cibles')
+    type_cible = models.CharField(max_length=20, choices=CIBLES)
+
+    def __str__(self):
+        return f"{self.get_type_cible_display()} - {self.experimentation.nom}"
+
+
+class StatutCible(models.Model):
+    """
+    Statuts (étapes d'inclusion) pour chaque type de cible dans une expérimentation.
+    """
+    cible = models.ForeignKey(CibleExperimentation, on_delete=models.CASCADE, related_name='statuts')
+    nom_statut = models.CharField(max_length=100)
+
+    def __str__(self):
+        return f"{self.nom_statut} ({self.cible.type_cible} - {self.cible.experimentation.nom})"
+
+
+class ChampStatut(models.Model):
+    """
+    Champs à saisir à chaque statut d'une cible.
+    """
+    statut = models.ForeignKey(StatutCible, on_delete=models.CASCADE, related_name='champs')
+    nom_champ = models.CharField(max_length=100)
+
+    def __str__(self):
+        return f"{self.nom_champ} (Statut: {self.statut.nom_statut})"
+
+class UsagerPro(models.Model):
+    nom = models.CharField(max_length=100)
+    email = models.EmailField()
+    cible = models.CharField(
+        max_length=30,
+        choices=[
+            ('seniors', 'Seniors'),
+            ('aidants', 'Aidants'),
+            ('professionnels', 'Professionnels')
+        ],
+        default='seniors'  # ✅ Valeur par défaut pour corriger le problème
+    )
+
+    def __str__(self):
+        return f"{self.nom} ({self.email})"
+
+
+class UsagerRI2S(models.Model):
+    TYPE_CHOICES = [
+        ('pro', 'Professionnel'),
+        ('non_pro', 'Non professionnel'),
+    ]
+    type_usager = models.CharField(max_length=10, choices=TYPE_CHOICES)
+    nom = models.CharField(max_length=100)
+    prenom = models.CharField(max_length=100)
+    telephone = models.CharField(max_length=20)
+    email = models.EmailField()
+    sexe = models.CharField(max_length=10)
+    date_naissance = models.DateField(null=True, blank=True)
+    profession = models.CharField(max_length=100, blank=True)
+    structure = models.CharField(max_length=100, blank=True)
+    code_postal = models.CharField(max_length=10, blank=True)
+
+    def __str__(self):
+        return f"{self.prenom} {self.nom}"

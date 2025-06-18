@@ -1,274 +1,409 @@
+from django.shortcuts import render, redirect
+from django.http import JsonResponse
+from django.urls import reverse
+from django.views.decorators.csrf import csrf_exempt  # ✅ à ne pas oublier
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from django.shortcuts import render, redirect, get_object_or_404
+from django.views.decorators.http import require_GET
+from .models import CibleExperimentation
 from django.http import JsonResponse
+from .models import CibleExperimentation, StatutCible
+from django.shortcuts import render
+from .models import ExperimentationGenerale
 from django.urls import reverse
+from django.http import JsonResponse
+from django.http import JsonResponse
+from .models import Beneficiaire
+from django.shortcuts import redirect
+from django.shortcuts import render, redirect
+from .models import UsagerPro, UsagerRI2S
+from django.shortcuts import render
+from rest_framework.generics import UpdateAPIView
+from django.shortcuts import get_object_or_404
+from .models import Beneficiaire
+from django.urls import reverse
+from .models import UsagerRI2S
+from django.http import JsonResponse
+from .models import CibleExperimentation, StatutCible, ChampStatut
+from rest_framework.generics import RetrieveAPIView
+from .models import Beneficiaire
 from urllib.parse import quote
-from .models import Beneficiaire, Aidant, ChampPersonnalise, ContactReferent, Experimentation, ExperimentationGenerale, Fichier, Cohorte, UsagerPro
-from .forms import ContactReferentForm, ExperimentationGeneraleForm, CohorteForm, ChampPersonnaliseForm, UsagerProForm
+from .models import UsagerRI2S
+
+from .models import ContactReferent
+
 from .serializers import BeneficiaireSerializer
 
-from django.forms import inlineformset_factory
+from django.http import HttpResponse
+from .models import ExperimentationGenerale
+from .models import UsagerPro
 from django.views.decorators.csrf import csrf_exempt
 import json
-
-def beneficiaire_detail_view(request, pk):
-    return render(request, 'beneficiaire_detail.html', {'beneficiary_id': pk})
-
-
-class BeneficiaireUpdateView(APIView):
-    def post(self, request, pk):
-        try:
-            beneficiaire = Beneficiaire.objects.get(pk=pk)
-            experimentation = beneficiaire.experimentations.first()
-            if 'remarques' in request.data:
-                experimentation.remarques = request.data['remarques']
-                experimentation.save()
-            if 'fichier' in request.FILES:
-                Fichier.objects.create(
-                    experimentation=experimentation,
-                    fichier=request.FILES['fichier'],
-                    type_fichier='formulaire_ri2s'
-                )
-            return Response({"message": "Données enregistrées"}, status=status.HTTP_200_OK)
-        except Beneficiaire.DoesNotExist:
-            return Response({"error": "Bénéficiaire non trouvé"}, status=status.HTTP_404_NOT_FOUND)
 
 def menu_view(request):
     return render(request, 'menu.html')
 
+
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+from .models import (
+    ContactReferent, ExperimentationGenerale, ChampPersonnalise
+)
+
+@csrf_exempt
+def create_experimentation(request):
+    try:
+        if request.method != 'POST':
+            return JsonResponse({'success': False, 'error': 'Méthode non autorisée'}, status=405)
+
+        print("---- Données reçues dans POST ----")
+        for key in request.POST:
+            print(f"{key} => {request.POST.getlist(key)}")
+
+        # 1. Création du contact
+        contact = ContactReferent.objects.create(
+            nom=request.POST.get('contactNom', ''),
+            email=request.POST.get('contactEmail', ''),
+            telephone=request.POST.get('contactTel', ''),
+        )
+        print("✅ Contact créé :", contact)
+
+        # 2. Création de l'expérimentation
+        experimentation = ExperimentationGenerale.objects.create(
+            nom=request.POST.get('nom', ''),
+            entreprise=request.POST.get('entreprise', ''),
+            date_debut=request.POST.get('date_debut', None),
+            date_fin=request.POST.get('date_fin', None) or None,
+            remarques=request.POST.get('remarques', ''),
+            contact=contact
+        )
+        print("✅ Expérimentation créée :", experimentation)
+
+        # ✅ 3. Traitement des SECTIONS personnalisées (titre + champs)
+        i = 0
+        while True:
+            titre = request.POST.get(f'sections[{i}][titre]')
+            if not titre:
+                break  # Fin des sections
+
+            # Tu vas récupérer tous les noms, types et valeurs possibles de cette section
+            noms = request.POST.getlist(f'sections[{i}][champs][]')
+            types = request.POST.getlist(f'sections[{i}][types][]')
+            valeurs_possibles = request.POST.getlist(f'sections[{i}][valeurs][]')
+
+            for nom, type_, valeurs in zip(noms, types, valeurs_possibles):
+                ChampPersonnalise.objects.create(
+                    experimentation=experimentation,
+                    nom_champ=nom,
+                    type_champ=type_,
+                    valeurs_possibles=valeurs or ''
+                )
+
+            i += 1
+
+
+
+        # 4. (Optionnel) Ajout d’autres traitements (cohortes, cibles, statuts…)
+        i = 0
+        while True:
+            titre = request.POST.get(f'sections[{i}][titre]')
+            if not titre:
+                break  # fin des sections
+
+            champs = request.POST.getlist(f'sections[{i}][champs][]')
+            types = request.POST.getlist(f'sections[{i}][types][]')
+            valeurs_dyn = request.POST.getlist(f'sections[{i}][valeurs_dyn][]')
+
+            for j, nom_champ in enumerate(champs):
+                type_champ = types[j] if j < len(types) else "text"
+                valeurs_dyn_source = valeurs_dyn[j] if j < len(valeurs_dyn) else ""
+
+                valeurs_possibles = ""
+
+                if type_champ == "select":
+                    # Cherche toutes les options manuelles envoyées sous la forme sections[i][valeurs_manuelles_champid][]
+                    champ_id_prefix = f'sections[{i}][valeurs_manuelles_'
+                    matching_keys = [key for key in request.POST.keys() if key.startswith(champ_id_prefix)]
+                    valeurs_manuelles = []
+
+                    for key in matching_keys:
+                        valeurs_manuelles += request.POST.getlist(key)
+
+                    if valeurs_manuelles:
+                        valeurs_possibles = ",".join(valeurs_manuelles)
+                    elif valeurs_dyn_source:
+                        valeurs_possibles = valeurs_dyn_source  # ex: "cohortes", "aidants", etc.
+
+                # Création du champ personnalisé
+                ChampPersonnalise.objects.create(
+                    experimentation=experimentation,
+                    nom_champ=nom_champ,
+                    type_champ=type_champ,
+                    valeurs_possibles=valeurs_possibles
+                )
+
+            i += 1
+
+            # 5. Traitement des cibles et statuts avec champs dynamiques
+            for key in request.POST.keys():
+                if key.startswith("statuts_"):
+                    cible = key.replace("statuts_", "").replace("[]", "")
+                    noms_statuts = request.POST.getlist(f"statuts_{cible}[]")
+
+                    for statut_index, nom_statut in enumerate(noms_statuts):
+                        sc = StatutCible.objects.create(
+                            cible=CibleExperimentation.objects.create(experimentation=experimentation, type_cible=cible),
+                            nom_statut=nom_statut
+                        )
+
+                        champ_index = 0
+                        while True:
+                            prefix = f'champs_statut_{cible}_{statut_index}[{champ_index}]'
+                            nom_champ = request.POST.get(f'{prefix}[nom]')
+                            if not nom_champ:
+                                break
+
+                            type_champ = request.POST.get(f'{prefix}[type]', 'text')
+                            source_type = request.POST.get(f'{prefix}[source_type]', 'manual')
+
+                            if source_type == 'manual':
+                                options = request.POST.getlist(f'{prefix}[options][]')
+                                valeurs = ','.join(options)
+                            elif source_type in ['cohortes', 'aidants', 'usagers_pro']:
+                                valeurs = f'__SOURCE__:{source_type}'
+                            else:
+                                valeurs = ''
+
+                            ChampStatut.objects.create(
+                                statut=sc,
+                                nom_champ=nom_champ,
+                                type_champ=type_champ,
+                                valeurs_possibles=valeurs
+                            )
+                            champ_index += 1
+
+        return JsonResponse({'success': True, 'redirect_url': '/menu/'})
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+def liste_experimentations_view(request):
+    experimentations = ExperimentationGenerale.objects.all().order_by('-date_debut')
+    return render(request, 'liste_experimentations.html', {'experimentations': experimentations})
+
+
+def experimentation_detail_view(request, pk):
+    experimentation = get_object_or_404(ExperimentationGenerale, pk=pk)
+    return render(request, 'experiment_detail.html', {'experimentation': experimentation})
+
+
+
 def form_view(request):
-    return render(request, 'Formulaire_Coordinatrice.html')
+    return render(request, 'Formulaire_Coordinatrice.html')  # ou le nom de ton vrai template
+
+def confirmation_view(request):
+    message = request.GET.get("message", "Opération réussie.")
+    return render(request, 'confirmation.html', {'message': message})
+
+
+
+def save_beneficiaire(request):
+    return HttpResponse("Fonction save_beneficiaire à implémenter.")
 
 def experimentation_form_view(request):
     return render(request, 'Formulaire_Expérimentation.html')
 
 def usePro_Form_View(request):
-    return render(request, 'Formulaire_Usager_Pro.html')
+    return render(request, 'Formulaire_Coordinatrice.html')  # ou le bon nom de ton template
 
-def confirmation_view(request):
-    message = request.GET.get('message', 'Opération réussie')
-    return render(request, 'confirmation.html', {'message': message})
 
-def save_beneficiaire(request):
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'error': 'Méthode non autorisée'}, status=405)
+
+def add_usager_pro(request):
+    return render(request, 'Formulaire_Coordinatrice.html')  # adapte le nom du template si besoin
+
+
+
+class BeneficiaireDetailView(RetrieveAPIView):
+    queryset = Beneficiaire.objects.all()
+    serializer_class = BeneficiaireSerializer
+
+
+
+class BeneficiaireUpdateView(UpdateAPIView):
+    queryset = Beneficiaire.objects.all()
+    serializer_class = BeneficiaireSerializer
+
+
+
+def beneficiaire_detail_view(request, pk):
+    beneficiaire = get_object_or_404(Beneficiaire, pk=pk)
+    return render(request, 'beneficiaire_detail.html', {'beneficiaire': beneficiaire})
+
+
+
+
+def get_statuts_champs(request):
+    experimentation_id = request.GET.get("experimentation_id")
+    cible_type = request.GET.get("cible")
 
     try:
-        # Print submitted data for debugging
-        print("POST Data:", dict(request.POST))
-        print("Files:", dict(request.FILES))
+        cible = CibleExperimentation.objects.get(experimentation_id=experimentation_id, type_cible=cible_type)
+        statuts = StatutCible.objects.filter(cible=cible)
+        data = []
 
-        # Validate and extract beneficiary data
-        required_fields = ['nom', 'prenom', 'date_naissance', 'sexe', 'code_postal', 'telephone']
-        for field in required_fields:
-            if field not in request.POST or not request.POST[field].strip():
-                return JsonResponse({'success': False, 'error': f'Le champ {field} est requis'})
-
-        if not request.POST['telephone'].isdigit() or len(request.POST['telephone']) != 10:
-            return JsonResponse({'success': False, 'error': 'Numéro de téléphone du bénéficiaire invalide (10 chiffres requis)'})
-
-        beneficiaire_data = {
-            'nom': request.POST['nom'],
-            'prenom': request.POST['prenom'],
-            'date_naissance': request.POST['date_naissance'],
-            'sexe': request.POST['sexe'],
-            'code_postal': request.POST['code_postal'],
-            'email': request.POST.get('email', '').strip(),
-            'telephone': request.POST['telephone'],
-        }
-        beneficiaire = Beneficiaire.objects.create(**beneficiaire_data)
-
-        # Process aidants
-        tiers_noms = request.POST.getlist('tiers_nom[]')
-        tiers_prenoms = request.POST.getlist('tiers_prenom[]')
-        tiers_emails = request.POST.getlist('tiers_email[]')
-        tiers_tels = request.POST.getlist('tiers_tel[]')
-        tiers_liens = request.POST.getlist('tiers_lien[]')
-
-        if tiers_noms:  # Only proceed if there are aidants
-            if not (len(tiers_noms) == len(tiers_prenoms) == len(tiers_tels) == len(tiers_liens)):
-                return JsonResponse({'success': False, 'error': 'Données des aidants incomplètes'})
-            for i in range(len(tiers_noms)):
-                if not tiers_tels[i].isdigit() or len(tiers_tels[i]) != 10:
-                    return JsonResponse({'success': False, 'error': f'Numéro de téléphone invalide pour l\'aidant {i+1}'})
-                Aidant.objects.create(
-                    beneficiaire=beneficiaire,
-                    nom=tiers_noms[i],
-                    prenom=tiers_prenoms[i],
-                    email=tiers_emails[i] if tiers_emails[i] else '',
-                    telephone=tiers_tels[i],
-                    lien_parente=tiers_liens[i]
-                )
-
-        # Process experimentations
-        exp_types = request.POST.getlist('exp_type[]')
-        exp_coordinateurs = request.POST.getlist('exp_coordinateur[]')
-        exp_cohortes = request.POST.getlist('exp_cohorte[]')
-        exp_statuts = request.POST.getlist('exp_statut[]')
-        exp_date_debuts = request.POST.getlist('exp_date_debut[]')
-        exp_date_fins = request.POST.getlist('exp_date_fin[]')
-        exp_methode_recrutements = request.POST.getlist('exp_methode re[]')
-        exp_detail_recrutements = request.POST.getlist('exp_detail_recrutement[]')
-
-        if exp_types:  # Only proceed if there are experiments
-            # Ensure all required lists have the same length
-            required_exp_fields = [exp_types, exp_coordinateurs, exp_cohortes, exp_statuts]
-            if not all(len(lst) == len(exp_types) for lst in required_exp_fields):
-                return JsonResponse({'success': False, 'error': 'Données des expérimentations incomplètes'})
-
-            for i in range(len(exp_types)):
-                if exp_types[i]:  # Verify if the experimentation exists
-                    # Handle optional date fields
-                    date_debut = exp_date_debuts[i] if i < len(exp_date_debuts) and exp_date_debuts[i] else None
-                    date_fin = exp_date_fins[i] if i < len(exp_date_fins) and exp_date_fins[i] else None
-                    methode_recrutement = exp_methode_recrutements[i] if i < len(exp_methode_recrutements) and exp_methode_recrutements[i] else ''
-                    detail_recrutement = exp_detail_recrutements[i] if i < len(exp_detail_recrutements) and exp_detail_recrutements[i] else ''
-
-                    exp_data = {
-                        'beneficiaire': beneficiaire,
-                        'type': exp_types[i],
-                        'coordinateur': exp_coordinateurs[i],
-                        'cohorte': exp_cohortes[i],
-                        'statut': exp_statuts[i],
-                        'date_debut': date_debut,
-                        'date_fin': date_fin,
-                        'methode_recrutement': methode_recrutement,
-                        'detail_recrutement': detail_recrutement,
-                    }
-                    experimentation = Experimentation.objects.create(**exp_data)
-
-                    # Handle file uploads for TelegrafiK or Presage based on context
-                    file_types = []
-                    if exp_types[i] == 'TelegrafiK' and exp_statuts[i] in ['consentementTGK', 'installation', 'actif', 'interrompu', 'fini', 'desinstalle']:
-                        file_types = ['formulaire_ri2s', 'consentement_telegrafik', 'bon_installation']
-                    elif exp_types[i] == 'Presage' and exp_statuts[i] in ['consentement', 'actif', 'fini', 'interrompu']:
-                        file_types = ['consentement_ri2s']
-
-                    for file_type in file_types:
-                        # Handle multiple file uploads correctly
-                        if f"{file_type}_{i}" in request.FILES:
-                            fichier = Fichier(
-                                experimentation=experimentation,
-                                type_fichier=file_type,
-                                fichier=request.FILES[f"{file_type}_{i}"]
-                            )
-                            fichier.save()
-
-        # Redirect to confirmation page with message as query parameter
-        return redirect(f"{reverse('gestion:confirmation')}?message={quote('Données enregistrées avec succès')}")
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': f'Erreur lors de l\'enregistrement : {str(e)}'})
-
-@csrf_exempt
-def create_experimentation(request):
-    
-    if request.method == 'POST':
-        try:
-            # Create ContactReferent
-            contact = ContactReferent.objects.create(
-                nom=request.POST.get('contactNom'),
-                email=request.POST.get('contactEmail'),
-                telephone=request.POST.get('contactTel')
-            )
-            
-            # Create ExperimentationGenerale
-            experimentation = ExperimentationGenerale.objects.create(
-                nom=request.POST.get('nom'),
-                entreprise=request.POST.get('entreprise'),
-                date_debut=request.POST.get('date_debut'),
-                date_fin=request.POST.get('date_fin') or None,
-                remarques=request.POST.get('remarques', ''),
-                contact=contact
-            )
-            
-            # Process Cohortes
-            cohorte_names = request.POST.getlist('cohorte[]')
-            date_debuts = request.POST.getlist('cohorte_date_debut[]')
-            date_fins = request.POST.getlist('cohorte_date_fin[]')
-            
-            if len(cohorte_names) != len(date_debuts) or len(cohorte_names) != len(date_fins):
-                return JsonResponse({'success': False, 'error': 'Données des cohortes incomplètes'}, status=400)
-            
-            for name, debut, fin in zip(cohorte_names, date_debuts, date_fins):
-                Cohorte.objects.create(
-                    experimentation=experimentation,
-                    nom=name,
-                    date_debut=debut,
-                    date_fin=fin if fin else None
-                )
-            
-            # Process Custom Fields
-            custom_fields = json.loads(request.POST.get('custom_fields', '[]'))
-            for field in custom_fields:
-                if not field.get('name') or not field.get('type'):
-                    continue
-                ChampPersonnalise.objects.create(
-                    experimentation=experimentation,
-                    nom_champ=field['name'],
-                    type_champ=field['type'],
-                    valeurs_possibles=','.join(field.get('options', [])) if field['type'] == 'select' else ''
-                )
-            
-            return JsonResponse({
-                'success': True,
-                'message': 'Expérimentation créée avec succès',
-                'redirect_url': f"{reverse('gestion:confirmation')}?message={quote('Expérimentation créée avec succès')}"
+        for statut in statuts:
+            champs = ChampStatut.objects.filter(statut=statut).values_list('nom_champ', flat=True)
+            data.append({
+                "nom_statut": statut.nom_statut,
+                "champs": list(champs)
             })
-            
-        except Exception as e:
-            return JsonResponse({'success': False, 'error': str(e)}, status=400)
-    
-    return render(request, 'Formulaire_Expérimentation.html')
 
-    # GET request: Render empty forms
-    contact_form = ContactReferentForm()
-    experimentation_form = ExperimentationGeneraleForm()
-    cohorte_formset = CohorteFormSet()
-    champ_formset = ChampPersonnaliseFormSet()
-    return render(request, 'Formulaire_Expérimentation.html', {
-        'contact_form': contact_form,
-        'experimentation_form': experimentation_form,
-        'cohorte_formset': cohorte_formset,
-        'champ_formset': champ_formset,
+        return JsonResponse({"success": True, "statuts": data})
+    except CibleExperimentation.DoesNotExist:
+        return JsonResponse({"success": False, "error": "Cible non trouvée"})
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)})
+
+
+
+def ajouter_beneficiaire_view(request):
+    experimentations = ExperimentationGenerale.objects.all()
+    return render(request, 'Formulaire_Coordinatrice.html', {
+        'experimentations': experimentations
     })
 
-@csrf_exempt
-@csrf_exempt
-def add_usager_pro(request):
-    if request.method == 'POST':
-        try:
-            # Exemple d'enregistrement
-            usager = UsagerPro.objects.create(
-                nom=request.POST.get('nom'),
-                prenom=request.POST.get('prenom'),
-                telephone=request.POST.get('telephone'),
-                email=request.POST.get('email'),
-                profession=request.POST.get('profession'),
-                structure=request.POST.get('structure'),
-                remarques=request.POST.get('remarques', '')
-            )
-            return JsonResponse({
-                "success": True,
-                "message": "Usager professionnel ajouté avec succès.",
-                "redirect_url": "/confirmation/"
-            })
-        except Exception as e:
-            return JsonResponse({
-                "success": False,
-                "error": "Erreur lors de l’enregistrement.",
-                "details": str(e)
-            }, status=400)
-    return JsonResponse({"error": "Méthode non autorisée"}, status=405)
 
-class BeneficiaireDetailView(APIView):
-    def get(self, request, pk):
-        try:
-            beneficiaire = Beneficiaire.objects.get(pk=pk)
-            serializer = BeneficiaireSerializer(beneficiaire)
-            return Response(serializer.data)
-        except Beneficiaire.DoesNotExist:
-            return Response({"error": "Bénéficiaire non trouvé"}, status=status.HTTP_404_NOT_FOUND)
-        
-        
+
+
+def api_statuts_champs(request):
+    experimentation_id = request.GET.get("experimentation_id")
+    cible = request.GET.get("cible")
+
+    try:
+        cible_obj = CibleExperimentation.objects.get(
+            experimentation_id=experimentation_id,
+            type_cible=cible
+        )
+        statuts = cible_obj.statuts.prefetch_related("champs")
+        resultat = []
+        for statut in statuts:
+            resultat.append({
+                "nom_statut": statut.nom_statut,
+                "champs": [c.nom_champ for c in statut.champs.all()]
+            })
+        return JsonResponse({"success": True, "statuts": resultat})
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)})
+
+
+
+
+@require_GET
+def api_cibles_experimentation(request):
+    experimentation_id = request.GET.get("experimentation_id")
+
+    if not experimentation_id:
+        return JsonResponse({"success": False, "error": "ID manquant"})
+
+    cibles = CibleExperimentation.objects.filter(experimentation_id=experimentation_id)
+    data = [c.type_cible for c in cibles]
+
+    return JsonResponse({"success": True, "cibles": data})
+
+
+def api_usagers_par_statut(request):
+    statut = request.GET.get("statut")
+
+    try:
+        if not statut:
+            return JsonResponse({'success': False, 'error': 'Statut non spécifié'})
+
+        beneficiaires = Beneficiaire.objects.filter(statut=statut)  # adapte selon ton modèle
+        data = [
+            {
+                'id': b.id,
+                'nom': b.nom,
+                'prenom': b.prenom
+            }
+            for b in beneficiaires
+        ]
+
+        return JsonResponse({'success': True, 'usagers': data})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+
+@csrf_exempt
+def ajouter_usager_pro(request):
+    if request.method == 'POST':
+        UsagerPro.objects.create(
+            nom=request.POST.get('nom'),
+            email=request.POST.get('email'),
+            cible=request.POST.get('cible')
+        )
+        return redirect('gestion:confirmation')  # ou ta page de redirection
+    return render(request, 'ajouter_usager_pro.html')
+
+def api_usagers_pro(request):
+    cible = request.GET.get("cible")
+    usagers = UsagerPro.objects.filter(cible=cible).values("id", "nom", "email")
+    return JsonResponse({"success": True, "usagers": list(usagers)})
+
+
+
+
+
+
+def ajouter_usager_ri2s(request):
+    if request.method == 'POST':
+        type_usager = request.POST.get('type_usager')
+
+        nom = request.POST.get('nom')
+        prenom = request.POST.get('prenom')
+        telephone = request.POST.get('telephone')
+        email = request.POST.get('email')
+        sexe = request.POST.get('sexe')
+
+        if type_usager == 'pro':
+            profession = request.POST.get('profession')
+            structure = request.POST.get('structure')
+
+            UsagerPro.objects.create(
+                nom=nom,
+                prenom=prenom,
+                telephone=telephone,
+                email=email,
+                profession=profession,
+                structure=structure,
+                sexe=sexe
+            )
+        else:
+            date_naissance = request.POST.get('date_naissance')
+            code_postal = request.POST.get('code_postal')
+
+            UsagerRI2S.objects.create(
+                nom=nom,
+                prenom=prenom,
+                telephone=telephone,
+                email=email,
+                date_naissance=date_naissance,
+                code_postal=code_postal,
+                sexe=sexe
+            )
+
+        # ✅ Redirection propre après POST réussi
+        return redirect('gestion:menu')
+
+    # GET : affiche le bon formulaire
+    return render(request, 'ajouter_usager_ri2s.html')
+
+
+
+
+
+
