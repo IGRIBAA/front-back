@@ -21,124 +21,129 @@
 <body class="bg-gray-100 text-gray-800 pt-6">
   <div class="max-w-5xl mx-auto p-8 bg-white shadow-2xl rounded-2xl mt-10">
     <h1 class="text-3xl font-bold mb-6 text-center">Ajout d'un bénéficiaire</h1>
-
-    <section class="mb-8">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label class="label-required">Expérimentation générale</label>
-          <select id="selectExperimentation" class="input" required>
-            <option value="">Sélectionner...</option>
-            {% for exp in experimentations %}
-              <option value="{{ exp.id }}">{{ exp.nom }}</option>
-            {% endfor %}
-          </select>
-        </div>
-
-        <div>
-          <label class="label-required">Cible</label>
-          <select id="selectCible" class="input">
-            <option value="">Choisir...</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="mt-6">
-        <label class="label-required">Statut</label>
-        <select id="selectStatut" class="input" disabled>
-          <option value="">Sélectionner une expérimentation et une cible</option>
-        </select>
-      </div>
-
-      <div id="zoneChampsStatut" class="mt-6"></div>
-    </section>
-  </div>
   
-  <script>
-    let statutsData = [];
+  <form method="POST" action="{% url 'gestion:save_beneficiaire' %}" id="formBenef">
+  {% csrf_token %}
 
-    async function chargerStatuts() {
-      const experimentationId = document.getElementById("selectExperimentation").value;
-      const cible = document.getElementById("selectCible").value;
-      const statutSelect = document.getElementById("selectStatut");
-      const champsZone = document.getElementById("zoneChampsStatut");
+  <label class="label-required">Expérimentation</label>
+  <select id="selectExperimentation" name="experimentation_id" class="input" required>
+    <option value="">Choisir...</option>
+    {% for exp in experimentations %}
+      <option value="{{ exp.id }}">{{ exp.nom }}</option>
+    {% endfor %}
+  </select>
 
-      champsZone.innerHTML = "";
-      statutSelect.innerHTML = '<option value="">Chargement...</option>';
-      statutSelect.disabled = true;
+  <div class="mt-4">
+    <label class="label-required">Cible</label>
+    <select id="selectCible" name="cible" class="input" required></select>
+  </div>
 
-      if (!experimentationId || !cible) return;
+  <div class="mt-4">
+    <label class="font-semibold">Recherche usager</label>
+    <input type="text" id="rechercheUsager" class="input" placeholder="Nom ou prénom">
+    <div id="resultatsUsager" class="mt-2 border rounded bg-white max-h-40 overflow-auto"></div>
+    <input type="hidden" name="usager_id" id="usagerId">
+  </div>
 
-      try {
-        const res = await fetch(`/api/statuts-champs/?experimentation_id=${experimentationId}&cible=${cible}`);
-        const data = await res.json();
+  <div class="mt-4">
+    <label class="label-required">Statut</label>
+    <select id="selectStatut" name="statut" class="input" required></select>
+  </div>
 
-        if (data.success) {
-          statutsData = data.statuts;
-          statutSelect.innerHTML = '<option value="">Sélectionner un statut</option>';
-          data.statuts.forEach((s, index) => {
-            const opt = document.createElement("option");
-            opt.value = index;
-            opt.textContent = s.nom_statut;
-            statutSelect.appendChild(opt);
-          });
-          statutSelect.disabled = false;
-        } else {
-          statutSelect.innerHTML = `<option value="">Erreur : ${data.error}</option>`;
-        }
-      } catch (err) {
-        statutSelect.innerHTML = `<option value="">Erreur réseau</option>`;
-      }
-    }
+  <div id="zoneChampsStatut" class="mt-4"></div>
 
-    document.getElementById("selectExperimentation").addEventListener("change", async function () {
-      const experimentationId = this.value;
-      const cibleSelect = document.getElementById("selectCible");
+  <div class="mt-6">
+    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">Ajouter le bénéficiaire</button>
+  </div>
+</form>
 
-      cibleSelect.innerHTML = '<option value="">Chargement...</option>';
-      document.getElementById("selectStatut").innerHTML = '';
-      document.getElementById("zoneChampsStatut").innerHTML = '';
+<script>
+  let statutsData = [];
 
-      if (!experimentationId) return;
+  // Chargement des cibles selon l'expérimentation
+  document.getElementById("selectExperimentation").addEventListener("change", async function () {
+    const experimentationId = this.value;
+    const cibleSelect = document.getElementById("selectCible");
+    cibleSelect.innerHTML = '<option value="">Chargement...</option>';
 
-      try {
-        const res = await fetch(`/api/cibles/?experimentation_id=${experimentationId}`);
-        const data = await res.json();
+    const res = await fetch(`/api/cibles/?experimentation_id=${experimentationId}`);
+    const data = await res.json();
 
-        if (data.success) {
-          cibleSelect.innerHTML = '<option value="">Choisir...</option>';
-          data.cibles.forEach(cible => {
-            const opt = document.createElement("option");
-            opt.value = cible;
-            opt.textContent = cible.charAt(0).toUpperCase() + cible.slice(1);
-            cibleSelect.appendChild(opt);
-          });
-        } else {
-          cibleSelect.innerHTML = '<option value="">Erreur chargement</option>';
-        }
-      } catch (err) {
-        cibleSelect.innerHTML = '<option value="">Erreur réseau</option>';
-      }
-    });
-
-    document.getElementById("selectCible").addEventListener("change", chargerStatuts);
-
-    document.getElementById("selectStatut").addEventListener("change", function () {
-      const index = this.value;
-      const champsZone = document.getElementById("zoneChampsStatut");
-      champsZone.innerHTML = "";
-
-      if (index === "") return;
-
-      const selectedStatut = statutsData[parseInt(index)];
-      selectedStatut.champs.forEach(champ => {
-        champsZone.innerHTML += `
-          <div class="mb-4">
-            <label class="block font-medium">${champ} *</label>
-            <input type="text" name="champ_${selectedStatut.nom_statut}_${champ}" class="input" required>
-          </div>
-        `;
+    if (data.success) {
+      cibleSelect.innerHTML = '<option value="">Choisir...</option>';
+      data.cibles.forEach(cible => {
+        cibleSelect.innerHTML += `<option value="${cible}">${cible}</option>`;
       });
-    });
-  </script>
+    }
+  });
+
+  // Chargement des statuts et champs selon la cible
+  document.getElementById("selectCible").addEventListener("change", async function () {
+    const experimentationId = document.getElementById("selectExperimentation").value;
+    const cible = this.value;
+
+    const res = await fetch(`/api/statuts-champs/?experimentation_id=${experimentationId}&cible=${cible}`);
+    const data = await res.json();
+
+    const statutSelect = document.getElementById("selectStatut");
+    if (data.success) {
+      statutsData = data.statuts;
+      statutSelect.innerHTML = '<option value="">Choisir...</option>';
+      data.statuts.forEach((s, i) => {
+        statutSelect.innerHTML += `<option value="${i}">${s.nom_statut}</option>`;
+      });
+    }
+  });
+
+  // Affichage dynamique des champs personnalisés d’un statut
+  document.getElementById("selectStatut").addEventListener("change", function () {
+    const champs = statutsData[this.value]?.champs || [];
+    const zone = document.getElementById("zoneChampsStatut");
+    zone.innerHTML = champs.map(ch => `
+      <div class="mb-3">
+        <label class="block font-medium">${ch} *</label>
+        <input type="text" name="champ_${ch}" class="input" required>
+      </div>
+    `).join('');
+  });
+
+  // Recherche dynamique dans UsagerRI2S
+  document.getElementById("rechercheUsager").addEventListener("input", async function () {
+    const q = this.value.trim();
+    const resDiv = document.getElementById("resultatsUsager");
+    const inputId = document.getElementById("usagerId");
+    inputId.value = "";
+    resDiv.innerHTML = "";
+
+    if (q.length < 2) return;
+
+    try {
+      const res = await fetch(`/api/search-usager-ri2s/?q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      if (data.success) {
+        resDiv.innerHTML = data.usagers.map(u =>
+          `<div class="p-2 hover:bg-gray-100 cursor-pointer" data-id="${u.id}" data-nom="${u.nom} ${u.prenom}">
+             ${u.nom} ${u.prenom}
+           </div>`
+        ).join('');
+
+        resDiv.querySelectorAll('div').forEach(div => {
+          div.addEventListener('click', () => {
+            const id = div.dataset.id;
+            const full = div.dataset.nom;
+            inputId.value = id;
+            document.getElementById("rechercheUsager").value = full;
+            resDiv.innerHTML = "";
+          });
+        });
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  });
+</script>
+
+</script>
+
 </body>
 </html>

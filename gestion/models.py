@@ -1,12 +1,13 @@
+# models.py propre et corrigé
 from django.db import models
 from django.core.validators import RegexValidator
-from django.views.decorators.csrf import csrf_exempt
-from django.db import models
+from django.utils import timezone
+from django.contrib.postgres.fields import ArrayField
 
+# -------------------------
+# USAGERS / AIDANTS / BÉNÉFICIAIRES
+# -------------------------
 class Beneficiaire(models.Model):
-    """
-    Modèle représentant un bénéficiaire du projet.
-    """
     nom = models.CharField(max_length=100)
     prenom = models.CharField(max_length=100)
     date_naissance = models.DateField()
@@ -20,10 +21,9 @@ class Beneficiaire(models.Model):
         return f"{self.prenom} {self.nom}"
 
 
+
+
 class Aidant(models.Model):
-    """
-    Modèle représentant un aidant d’un bénéficiaire.
-    """
     beneficiaire = models.ForeignKey(Beneficiaire, related_name='aidants', on_delete=models.CASCADE)
     nom = models.CharField(max_length=100)
     prenom = models.CharField(max_length=100)
@@ -38,16 +38,147 @@ class Aidant(models.Model):
         return f"{self.prenom} {self.nom} ({self.lien_parente})"
 
 
-class Experimentation(models.Model):
-    """
-    Modèle représentant une expérimentation liée à un bénéficiaire.
-    """
+# -------------------------
+# EXPÉRIMENTATION GÉNÉRALE / STRUCTURE
+# -------------------------
+class ContactReferent(models.Model):
+    nom = models.CharField(max_length=255)
+    email = models.EmailField()
+    telephone = models.CharField(max_length=10)
 
+    def __str__(self):
+        return self.nom
+
+class ExperimentationGenerale(models.Model):
+    nom = models.CharField(max_length=255)
+    entreprise = models.CharField(max_length=255)
+    date_debut = models.DateField()
+    date_fin = models.DateField(null=True, blank=True)
+    remarques = models.TextField(blank=True)
+    contact = models.OneToOneField(ContactReferent, on_delete=models.CASCADE, related_name='experimentation_generale')
+
+    def __str__(self):
+        return self.nom
+
+class Cohorte(models.Model):
+    experimentation = models.ForeignKey(ExperimentationGenerale, on_delete=models.CASCADE, related_name='cohortes')
+    nom = models.CharField(max_length=255)
+    date_debut = models.DateField()
+    date_fin = models.DateField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.nom} ({self.experimentation.nom})"
+
+
+# -------------------------
+# CHAMPS PERSONNALISÉS GÉNÉRAUX
+# -------------------------
+class ChampPersonnalise(models.Model):
+    TYPE_CHOIX = [
+        ('text', 'Texte'),
+        ('date', 'Date'),
+        ('number', 'Nombre'),
+        ('file', 'Fichier'),
+        ('select', 'Liste déroulante'),
+    ]
+    experimentation = models.ForeignKey(ExperimentationGenerale, on_delete=models.CASCADE, related_name='champs_perso')
+    titre_section = models.CharField(max_length=255, default="")
+    nom_champ = models.CharField(max_length=255)
+    type_champ = models.CharField(max_length=20, choices=TYPE_CHOIX)
+    valeurs_possibles = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"{self.nom_champ} ({self.type_champ})"
+
+
+# -------------------------
+# CIBLES / STATUTS / CHAMPS PAR STATUT
+# -------------------------
+class CibleExperimentation(models.Model):
+    CIBLES = [
+        ('seniors', 'Seniors'),
+        ('professionnels', 'Professionnels'),
+        ('aidants', 'Aidants'),
+    ]
+    experimentation = models.ForeignKey(ExperimentationGenerale, on_delete=models.CASCADE, related_name='cibles')
+    type_cible = models.CharField(max_length=20, choices=CIBLES)
+
+    def __str__(self):
+        return f"{self.get_type_cible_display()} - {self.experimentation.nom}"
+
+class StatutCible(models.Model):
+    cible = models.ForeignKey(CibleExperimentation, on_delete=models.CASCADE, related_name='statuts')
+    nom_statut = models.CharField(max_length=100)
+
+    def __str__(self):
+        return f"{self.nom_statut} ({self.cible.type_cible} - {self.cible.experimentation.nom})"
+
+class ChampStatut(models.Model):
+    statut = models.ForeignKey(StatutCible, on_delete=models.CASCADE, related_name='champs')
+    section = models.CharField(max_length=255, default="")  # Titre section
+    nom_champ = models.CharField(max_length=255)
+    type_champ = models.CharField(max_length=50)
+    valeurs_possibles = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"{self.nom_champ} (Statut: {self.statut.nom_statut})"
+
+
+# -------------------------
+# USAGERS PRO / RI2S
+# -------------------------
+class UsagerPro(models.Model):
+    nom = models.CharField(max_length=100)
+    prenom = models.CharField(max_length=100)
+    telephone = models.CharField(max_length=15)  # au lieu de 10
+    email = models.EmailField(max_length=255, blank=True)  # explicite
+    profession = models.CharField(max_length=100)
+    structure = models.CharField(max_length=100)
+    remarques = models.TextField(blank=True)
+    date_creation = models.DateTimeField(default=timezone.now)
+
+    cible = models.CharField(
+        max_length=30,
+        choices=[
+            ('seniors', 'Seniors'),
+            ('aidants', 'Aidants'),
+            ('professionnels', 'Professionnels')
+        ],
+        default='seniors'
+    )
+
+    def __str__(self):
+        return f"{self.prenom} {self.nom} - {self.profession}"
+
+class UsagerRI2S(models.Model):
+    TYPE_CHOICES = [
+        ('pro', 'Professionnel'),
+        ('non_pro', 'Non professionnel'),
+    ]
+    type_usager = models.CharField(max_length=10, choices=TYPE_CHOICES)
+    nom = models.CharField(max_length=100)
+    prenom = models.CharField(max_length=100)
+    telephone = models.CharField(max_length=20)
+    email = models.EmailField()
+    role = ArrayField(models.CharField(max_length=100), default=list, blank=True)
+    sexe = models.CharField(max_length=10)
+    date_naissance = models.DateField(null=True, blank=True)
+    profession = models.CharField(max_length=100, blank=True)
+    structure = models.CharField(max_length=100, blank=True)
+    code_postal = models.CharField(max_length=10, blank=True)
+
+    def __str__(self):
+        return f"{self.prenom} {self.nom}"
+
+
+# -------------------------
+# FICHIERS EXPÉRIMENTATIONS
+# -------------------------
+class Experimentation(models.Model):
     TYPE_CHOICES = [
         ('TelegrafiK', 'TelegrafiK'),
         ('Presage', 'Presage'),
     ]
-
     STATUT_CHOICES = [
         ('noninitie', 'Non initié'),
         ('visite', 'Visite programmée'),
@@ -59,13 +190,11 @@ class Experimentation(models.Model):
         ('fini', 'Fini'),
         ('desinstalle', 'Désinstallé'),
     ]
-
     METHODE_RECRUTEMENT_CHOICES = [
         ('evenement', 'Événement'),
         ('partenaire', 'Partenaire'),
         ('usager', 'Usager pro'),
     ]
-
     beneficiaire = models.ForeignKey(Beneficiaire, related_name='experimentations', on_delete=models.CASCADE)
     type = models.CharField(max_length=20, choices=TYPE_CHOICES)
     coordinateur = models.CharField(max_length=100)
@@ -80,186 +209,41 @@ class Experimentation(models.Model):
     def __str__(self):
         return f"{self.type} - {self.get_statut_display()}"
 
-
 class Fichier(models.Model):
-    """
-    Fichiers liés à une expérimentation (formulaires, consentements, etc.).
-    """
-
     TYPE_CHOICES = [
         ('formulaire_ri2s', 'Formulaire RI2S'),
         ('consentement_telegrafik', 'Consentement TELEGRAFIK'),
         ('bon_installation', "Bon d'installation"),
         ('consentement_ri2s', 'Consentement RI2S'),
     ]
-
     experimentation = models.ForeignKey(Experimentation, related_name='fichiers', on_delete=models.CASCADE)
     fichier = models.FileField(upload_to='uploads/%Y/%m/%d/')
     type_fichier = models.CharField(max_length=50, choices=TYPE_CHOICES)
 
     def __str__(self):
         return f"{self.get_type_fichier_display()} - {self.experimentation}"
-    
 
-class ContactReferent(models.Model):
-    """
-    Contact du référent pour une expérimentation générale.
-    """
-    nom = models.CharField(max_length=255)
-    email = models.EmailField()
-    telephone = models.CharField(max_length=10)
-
-    def __str__(self):
-        return self.nom
-
-
-class ExperimentationGenerale(models.Model):
-    """
-    Modèle principal d'expérimentation générale (non liée à un bénéficiaire spécifique).
-    """
-    nom = models.CharField(max_length=255)
-    entreprise = models.CharField(max_length=255)
-    date_debut = models.DateField()
-    date_fin = models.DateField(null=True, blank=True)
-    remarques = models.TextField(blank=True)
-    contact = models.OneToOneField(ContactReferent, on_delete=models.CASCADE, related_name='experimentation_generale')
-
-    def __str__(self):
-        return self.nom
-
-
-class Cohorte(models.Model):
-    """
-    Cohortes associées à une expérimentation générale.
-    """
-    experimentation = models.ForeignKey(ExperimentationGenerale, on_delete=models.CASCADE, related_name='cohortes')
-    nom = models.CharField(max_length=255)
-    date_debut = models.DateField()
-    date_fin = models.DateField(null=True, blank=True)
-
-    def __str__(self):
-        return f"{self.nom} ({self.experimentation.nom})"
-
-
-class ChampPersonnalise(models.Model):
-    TYPE_CHOIX = [
+class ChampCommun(models.Model):
+    experimentation = models.ForeignKey(ExperimentationGenerale, related_name="champs_communs", on_delete=models.CASCADE)
+    titre_section = models.CharField(max_length=255, default="Section commune")
+    nom_champ = models.CharField(max_length=255)
+    type_champ = models.CharField(max_length=50, choices=[
         ('text', 'Texte'),
         ('date', 'Date'),
         ('number', 'Nombre'),
         ('file', 'Fichier'),
         ('select', 'Liste déroulante'),
-    ]
-
-    experimentation = models.ForeignKey(ExperimentationGenerale, on_delete=models.CASCADE, related_name='champs_perso')
-    nom_champ = models.CharField(max_length=255)
-    type_champ = models.CharField(max_length=20, choices=TYPE_CHOIX)
-    valeurs_possibles = models.TextField(
-        blank=True,
-        help_text="Si 'select', séparer les options par des virgules OU indiquer 'aidants', 'usagers_pro', 'cohortes'"
-    )
+    ])
+    valeurs_possibles = models.TextField(blank=True)
 
     def __str__(self):
-        return f"{self.nom_champ} ({self.type_champ})"
+        return f"[COMMUN] {self.titre_section} - {self.nom_champ} ({self.type_champ})"
 
-    
-
-class UsagerPro(models.Model):
-    nom = models.CharField(max_length=100, verbose_name="Nom")
-    prenom = models.CharField(max_length=100, verbose_name="Prénom")
-    telephone = models.CharField(max_length=10, verbose_name="Téléphone")
-    email = models.EmailField(max_length=254, blank=True, verbose_name="Email professionnel")
-    profession = models.CharField(
-        max_length=50,
-        choices=[
-            ('Infirmier', 'Infirmier'),
-            ('Médecin', 'Médecin'),
-            ('Ergothérapeute', 'Ergothérapeute'),
-            ('Autre', 'Autre'),
-        ],
-        verbose_name="Profession"
-    )
-    structure = models.CharField(max_length=200, verbose_name="Structure / Établissement")
-    remarques = models.TextField(blank=True, verbose_name="Remarques")
-    date_creation = models.DateTimeField(auto_now_add=True, verbose_name="Date de création")
-
-    class Meta:
-        verbose_name = "Usager professionnel"
-        verbose_name_plural = "Usagers professionnels"
+class BeneficiaireExperimentation(models.Model):
+    usager = models.ForeignKey(UsagerRI2S, on_delete=models.CASCADE)
+    experimentation = models.ForeignKey(ExperimentationGenerale, on_delete=models.CASCADE)
+    cible = models.CharField(max_length=50)
+    statut = models.CharField(max_length=100)
 
     def __str__(self):
-        return f"{self.prenom} {self.nom} - {self.profession}"
-    
-    # Ajouter à la suite de ton fichier models.py
-
-class CibleExperimentation(models.Model):
-    """
-    Cibles associées à une expérimentation générale (ex: seniors, professionnels, aidants).
-    """
-    CIBLES = [
-        ('seniors', 'Seniors'),
-        ('professionnels', 'Professionnels'),
-        ('aidants', 'Aidants'),
-    ]
-    experimentation = models.ForeignKey(ExperimentationGenerale, on_delete=models.CASCADE, related_name='cibles')
-    type_cible = models.CharField(max_length=20, choices=CIBLES)
-
-    def __str__(self):
-        return f"{self.get_type_cible_display()} - {self.experimentation.nom}"
-
-
-class StatutCible(models.Model):
-    """
-    Statuts (étapes d'inclusion) pour chaque type de cible dans une expérimentation.
-    """
-    cible = models.ForeignKey(CibleExperimentation, on_delete=models.CASCADE, related_name='statuts')
-    nom_statut = models.CharField(max_length=100)
-
-    def __str__(self):
-        return f"{self.nom_statut} ({self.cible.type_cible} - {self.cible.experimentation.nom})"
-
-
-class ChampStatut(models.Model):
-    """
-    Champs à saisir à chaque statut d'une cible.
-    """
-    statut = models.ForeignKey(StatutCible, on_delete=models.CASCADE, related_name='champs')
-    nom_champ = models.CharField(max_length=100)
-
-    def __str__(self):
-        return f"{self.nom_champ} (Statut: {self.statut.nom_statut})"
-
-class UsagerPro(models.Model):
-    nom = models.CharField(max_length=100)
-    email = models.EmailField()
-    cible = models.CharField(
-        max_length=30,
-        choices=[
-            ('seniors', 'Seniors'),
-            ('aidants', 'Aidants'),
-            ('professionnels', 'Professionnels')
-        ],
-        default='seniors'  # ✅ Valeur par défaut pour corriger le problème
-    )
-
-    def __str__(self):
-        return f"{self.nom} ({self.email})"
-
-
-class UsagerRI2S(models.Model):
-    TYPE_CHOICES = [
-        ('pro', 'Professionnel'),
-        ('non_pro', 'Non professionnel'),
-    ]
-    type_usager = models.CharField(max_length=10, choices=TYPE_CHOICES)
-    nom = models.CharField(max_length=100)
-    prenom = models.CharField(max_length=100)
-    telephone = models.CharField(max_length=20)
-    email = models.EmailField()
-    sexe = models.CharField(max_length=10)
-    date_naissance = models.DateField(null=True, blank=True)
-    profession = models.CharField(max_length=100, blank=True)
-    structure = models.CharField(max_length=100, blank=True)
-    code_postal = models.CharField(max_length=10, blank=True)
-
-    def __str__(self):
-        return f"{self.prenom} {self.nom}"
+        return f"{self.usager.nom} {self.usager.prenom} - {self.experimentation.nom} ({self.cible})"

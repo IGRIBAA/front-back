@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Liste des personnes</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 p-8">
+  <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-lg">
+    <h1 class="text-2xl font-bold mb-6 text-green-700 text-center">👥 Liste des usagers RI2S</h1>
+    
+    <table class="w-full table-auto border-collapse">
+      <thead>
+        <tr class="bg-green-200 text-left">
+          <th class="p-2">Nom</th>
+          <th class="p-2">Prénom</th>
+          <th class="p-2">Email</th>
+          <th class="p-2">Téléphone</th>
+          <th class="p-2">Rôles</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in usagers %}
+        <tr class="border-b hover:bg-gray-100">
+          <td class="p-2">{{ u.nom }}</td>
+          <td class="p-2">{{ u.prenom }}</td>
+          <td class="p-2">{{ u.email }}</td>
+          <td class="p-2">{{ u.telephone }}</td>
+          <td class="p-2">
+            {% if u.role %}
+              <ul class="list-disc ml-4">
+                {% for r in u.role %}
+                  <li>{{ r }}</li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <span class="text-gray-400 italic">Aucun</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="mt-6 text-center">
+      <a href="{% url 'gestion:menu' %}" class="text-blue-600 hover:underline">← Retour au menu</a>
+    </div>
+  </div>
+</body>
+</html>

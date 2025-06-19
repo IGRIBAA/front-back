@@ -48,6 +48,15 @@
         <input type="email" name="email" id="email" required class="w-full border rounded p-2" oninput="validateEmail(this)">
         <p class="text-red-600 text-sm hidden" id="email_error">Format d'email invalide. Utilisez une adresse valide (ex. exemple@mail.com).</p>
       </div>
+      <div class="mt-4">
+        <label class="label-required">Rôle initial</label>
+        <select name="role_initial" required class="input">
+          <option value="">Choisir...</option>
+          <option value="senior">Senior</option>
+          <option value="aidant">Aidant</option>
+          <option value="pro">Professionnel</option>
+        </select>
+      </div>
 
       <!-- Professionnel uniquement -->
       <div class="champ-pro hidden">

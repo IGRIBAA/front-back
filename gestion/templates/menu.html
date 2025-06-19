@@ -10,17 +10,22 @@
     <h1 class="text-3xl font-bold text-center mb-8 text-green-700">Portail de l’expérimentation</h1>
 
     <ul class="space-y-4 text-lg">
-      <li><a href="{% url 'gestion:form_beneficiaire' %}" class="text-blue-600 hover:underline">➕ Ajouter un bénéficiaire ( Coordinateur )</a></li>
-      <li><a href="{% url 'gestion:usePro_Form' %}" class="text-blue-600 hover:underline">👤 Ajouter un usager pro ( Coordinateur )</a></li>
+      
       <li><a href="{% url 'gestion:experimentation_form' %}" class="text-blue-600 hover:underline">🧪 Ajouter une expérimentation ( Gestionnaire )</a></li>
-      <li><a href="{% url 'gestion:form_beneficiaire' %}" class="text-blue-600 hover:underline">📋 Liste des personnes ( Coordinateur + Gestionnaire )</a></li>
-      <li><a href="{% url 'gestion:beneficiaire_detail' pk=56 %}" class="text-blue-600 hover:underline">👩‍⚕️ Fiche de suivi bénéficiaire ( Infirmière coordinatrice )</a></li>
-      <li><a href="{% url 'gestion:liste_experimentations' %}" class="text-blue-600 hover:underline">📊 Liste des expérimentations (Gestionnaire)</a></li>
-      <li>
+       <li>
         <a href="{% url 'gestion:ajouter_usager_ri2s' %}" class="text-blue-600 hover:underline">
           🆕 Ajouter un usager RI2S
         </a>
       </li>
+      <li><a href="{% url 'gestion:form_beneficiaire' %}" class="text-blue-600 hover:underline">➕ Ajouter un bénéficiaire ( Coordinateur )</a></li>
+      <li><a href="{% url 'gestion:liste_personnes' %}" class="text-blue-600 hover:underline">📋 Liste des personnes ( Coordinateur + Gestionnaire )</a></li>
+
+
+      <li><a href="{% url 'gestion:usePro_Form' %}" class="text-blue-600 hover:underline">👤 Ajouter un usager pro ( Coordinateur )</a></li>
+      
+      <li><a href="{% url 'gestion:beneficiaire_detail' pk=56 %}" class="text-blue-600 hover:underline">👩‍⚕️ Fiche de suivi bénéficiaire ( Infirmière coordinatrice )</a></li>
+      <li><a href="{% url 'gestion:liste_experimentations' %}" class="text-blue-600 hover:underline">📊 Liste des expérimentations (Gestionnaire)</a></li>
+     
         <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6">
           {{ request.GET.message }}
         </div>

@@ -39,7 +39,11 @@ urlpatterns = [
     path('ajouter-usager/', views.ajouter_usager_ri2s, name='ajouter_usager_ri2s'),
 
     path('menu/', views.menu_view, name='menu'),
-
+    path('api/options_dynamiques/', views.api_options_dynamiques, name='api_options_dynamiques'),
+    path('api/search-usager-ri2s/', views.api_search_usager_ri2s, name='api_search_usager_ri2s'),
+    path('save-beneficiaire/', views.save_beneficiaire, name='save_beneficiaire'),
+    path('confirmation/', views.confirmation_view, name='confirmation'),
+    path('liste-personnes/', views.liste_personnes_view, name='liste_personnes'),
 
 ]
 

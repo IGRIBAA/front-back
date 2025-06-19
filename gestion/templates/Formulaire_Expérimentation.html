@@ -5,6 +5,51 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ajouter une Expérimentation</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <title>Créer une expérimentation</title>
+  <style>
+    .section-block {
+      margin-top: 20px;
+      padding: 15px 25px;
+      background-color: #f9f9f9;
+      border-left: 4px solid #00796b;
+      border-radius: 8px;
+    }
+
+    .section-block h3 {
+      margin-bottom: 15px;
+      color: #2c3e50;
+    }
+
+    .champ-commun-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      margin-bottom: 15px;
+    }
+
+    .champ-commun-field {
+      flex: 1;
+      min-width: 200px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .champ-commun-field.large {
+      flex: 2;
+    }
+
+    .champ-commun-field label {
+      font-weight: 600;
+      margin-bottom: 5px;
+    }
+
+    .champ-commun-field input,
+    .champ-commun-field select {
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+  </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
   <div class="max-w-4xl mx-auto mt-10 p-8 bg-white shadow-2xl rounded-xl">
@@ -69,14 +114,13 @@
           <label><input type="checkbox" name="cibles[]" value="aidant" onchange="toggleCible('aidant')"> Aidants</label>
           <label><input type="checkbox" name="cibles[]" value="pro" onchange="toggleCible('pro')"> Professionnels</label>
         </div>
-        <!-- SECTION : DÉFINITION DES SECTIONS DYNAMIQUES -->
-        <div class="mt-6">
-          <h2 class="text-xl font-semibold mb-2">Sections personnalisées</h2>
-          <button type="button" onclick="ajouterSection()" class="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 mb-4">+ Ajouter une section</button>
-          <div id="sectionsContainer" class="space-y-4"></div>
+        <!-- SECTION : Champs communs à toutes les cibles -->
+        <div class="section-block">
+          <h3 class="text-lg font-semibold mb-2">Champs communs à toutes les cibles</h3>
+          <div id="champsCommunsContainer" class="space-y-6"></div>
+          <button type="button" onclick="ajouterSectionCommun()" class="mt-2 bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">+ Ajouter une section</button>
         </div>
-        <div id="containerStatuts"></div>
-
+        <div id="containerStatuts" class="mt-4 space-y-4"></div>
 
 
         <div class="flex justify-between mt-6">
@@ -152,7 +196,7 @@
       const champWrapper = document.createElement("div");
       champWrapper.className = "space-y-1 p-2 border rounded bg-white";
 
-      const idChamp = Date.now();  // pour générer un identifiant unique
+      const idChamp = Date.now();  // identifiant unique pour relier les blocs
 
       champWrapper.innerHTML = `
         <div class="grid grid-cols-4 gap-2 items-center">
@@ -166,10 +210,20 @@
             <option value="select">Liste déroulante</option>
           </select>
 
-          <div id="optionsContainer_${idChamp}" class="col-span-2 hidden space-y-1">
-            <label class="text-sm text-gray-600">Options de la liste :</label>
-            <div id="selectOptions_${idChamp}" class="space-y-1"></div>
-            <button type="button" onclick="ajouterOption('${idChamp}')" class="text-sm text-blue-600 hover:underline">+ Ajouter une option</button>
+          <div id="optionsContainer_${idChamp}" class="col-span-2 hidden space-y-1 mt-2">
+            <label class="text-sm text-gray-600">Type de liste :</label>
+            <select name="champs_statut_${cible}_${index}[source_type][]" onchange="toggleOptionSource(this, '${idChamp}')" class="border p-2 rounded w-full">
+              <option value="manual">Manuelle</option>
+              <option value="cohortes">Cohortes</option>
+              <option value="aidants">Aidants</option>
+              <option value="usagers_pro">Usagers pro</option>
+            </select>
+
+            <div id="manualOptions_${idChamp}" class="space-y-1 mt-2">
+              <label class="text-sm text-gray-600">Options manuelles :</label>
+              <div id="selectOptions_${idChamp}" class="space-y-1"></div>
+              <button type="button" onclick="ajouterOption('${idChamp}')" class="text-sm text-blue-600 hover:underline">+ Ajouter une option</button>
+            </div>
           </div>
         </div>
         <button type="button" onclick="this.parentElement.remove()" class="text-red-600 ml-2">Supprimer</button>
@@ -177,6 +231,7 @@
 
       container.appendChild(champWrapper);
     }
+
 
     document.getElementById('formExperimentation').addEventListener('submit', async function (e) {
         e.preventDefault();
@@ -216,8 +271,8 @@
 
       function ajouterChampSection(index) {
         const champContainer = document.getElementById(`champsSection_${index}`);
-        const champ = document.createElement("div");
         const champId = `champ_${index}_${Date.now()}`;
+        const champ = document.createElement("div");
         champ.className = "border p-4 rounded bg-white";
         champ.innerHTML = `
           <div class="mb-2">
@@ -240,35 +295,19 @@
             </div>
             <div class="mt-3">
               <label class="block font-semibold">📡 Source dynamique :</label>
-              <select name="champs_statut_${cible}_${index}[types][]" onchange="gererTypeChamp(this, '${cible}', '${index}', '${idChamp}')" class="border p-2 rounded">
-                <option value="text">Texte</option>
-                <option value="number">Nombre</option>
-                <option value="date">Date</option>
-                <option value="file">Fichier</option>
-                <option value="select">Liste déroulante</option>
+              <select name="sections[${index}][valeurs][]" class="w-full border p-2 rounded">
+                <option value="">-- Aucune --</option>
+                <option value="__SOURCE__:cohortes">Cohortes</option>
+                <option value="__SOURCE__:aidants">Aidants</option>
+                <option value="__SOURCE__:usagers_pro">Usagers pro</option>
               </select>
             </div>
-            <div id="optionsContainer_${idChamp}" class="col-span-2 hidden space-y-1">
-              <label class="text-sm text-gray-600">Type de liste :</label>
-              <select name="champs_statut_${cible}_${index}[source_type][]" onchange="toggleOptionSource(this, '${idChamp}')" class="border p-2 rounded w-full">
-                <option value="manual">Manuelle</option>
-                <option value="cohortes">Cohortes</option>
-                <option value="aidants">Aidants</option>
-                <option value="usagers_pro">Usagers pro</option>
-              </select>
-
-              <div id="manualOptions_${idChamp}" class="space-y-1">
-                <label class="text-sm text-gray-600">Options manuelles :</label>
-                <div id="selectOptions_${idChamp}" class="space-y-1"></div>
-                <button type="button" onclick="ajouterOption('${idChamp}')" class="text-sm text-blue-600 hover:underline">+ Ajouter une option</button>
-              </div>
-            </div>
-
           </div>
           <button type="button" onclick="this.parentElement.remove()" class="text-red-600 mt-2">Supprimer</button>
         `;
         champContainer.appendChild(champ);
       }
+
       document.addEventListener('change', function (e) {
       if (e.target.classList.contains('type-select')) {
         const champId = e.target.dataset.champId;
@@ -317,6 +356,174 @@
     } else {
       manualDiv.classList.add('hidden');
     }
+  }
+  let champCommunIndex = 0;
+
+  function ajouterChampCommun() {
+      const container = document.getElementById('champsCommunsContainer');
+      const index = champCommunIndex++;
+
+      const champHTML = `
+      <div class="champ-commun-row" id="champ-commun-${index}">
+          <div class="champ-commun-field large">
+              <label>Titre de section</label>
+              <input type="text" name="titre_section[]" placeholder="Ex: Informations générales">
+          </div>
+
+          <div class="champ-commun-field">
+              <label>Nom du champ</label>
+              <input type="text" name="nom_champ[]" placeholder="Ex: Nom">
+          </div>
+
+          <div class="champ-commun-field">
+              <label>Type</label>
+              <select name="type_champ[]" onchange="gererAffichageValeurs(this, ${index})">
+                  <option value="text">Texte</option>
+                  <option value="number">Nombre</option>
+                  <option value="date">Date</option>
+                  <option value="select">Liste déroulante</option>
+              </select>
+          </div>
+
+          <div class="champ-commun-field" id="choix-type-valeurs-${index}" style="display:none">
+              <label>Source des options</label>
+              <select onchange="changerModeValeurs(this, ${index})" name="source_type_champ[]">
+                  <option value="manual">Manuelle</option>
+                  <option value="cohortes">Cohortes (base)</option>
+                  <option value="aidants">Aidants (base)</option>
+                  <option value="usagers_pro">Professionnels (base)</option>
+              </select>
+          </div>
+
+          <div class="champ-commun-field large" id="options-manuelles-${index}" style="display:none">
+              <label>Valeurs possibles</label>
+              <div id="valeurs-possibles-${index}">
+                  <input type="text" name="valeurs_possibles[]" placeholder="Option 1">
+              </div>
+              <button type="button" onclick="ajouterOption(${index})">+ Ajouter une option</button>
+          </div>
+      </div>
+      `;
+
+      container.insertAdjacentHTML('beforeend', champHTML);
+  }
+
+  function gererAffichageValeurs(selectElem, index) {
+      const type = selectElem.value;
+      document.getElementById(`choix-type-valeurs-${index}`).style.display = (type === 'select') ? 'block' : 'none';
+      document.getElementById(`options-manuelles-${index}`).style.display = 'none'; // Masque au départ
+  }
+
+  function changerModeValeurs(selectElem, index) {
+      const valeur = selectElem.value;
+      const manuel = document.getElementById(`options-manuelles-${index}`);
+      if (valeur === 'manual') {
+          manuel.style.display = 'block';
+      } else {
+          manuel.style.display = 'none';
+      }
+  }
+
+      function ajouterOption(index) {
+          const zone = document.getElementById(`valeurs-possibles-${index}`);
+          const input = document.createElement("input");
+          input.type = "text";
+          input.name = "valeurs_possibles[]";
+          input.placeholder = "Nouvelle option";
+          zone.appendChild(input);
+      }
+      let indexSectionCommun = 0;
+
+  function ajouterSectionCommun() {
+    const container = document.getElementById('champsCommunsContainer');
+    const sectionId = indexSectionCommun++;
+    const section = document.createElement('div');
+    section.className = "p-4 bg-white rounded shadow relative border";
+    section.id = `section-commun-${sectionId}`;
+
+    section.innerHTML = `
+      <div class="mb-3">
+        <label class="font-semibold">Titre de la section</label>
+        <input type="text" name="titre_section[]" class="w-full border p-2 rounded" placeholder="Ex: Informations générales">
+      </div>
+
+      <div id="champs-section-commun-${sectionId}" class="space-y-4"></div>
+      <button type="button" onclick="ajouterChampCommun(${sectionId})" class="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 mt-2">+ Champ</button>
+      <button type="button" onclick="document.getElementById('section-commun-${sectionId}').remove()" class="absolute top-2 right-2 text-red-600 text-xl">&times;</button>
+    `;
+    container.appendChild(section);
+  }
+
+  function ajouterChampCommun(sectionId) {
+    const container = document.getElementById(`champs-section-commun-${sectionId}`);
+    const champId = `comm-${sectionId}-${Date.now()}`;
+    const champ = document.createElement('div');
+    champ.className = "border p-3 rounded bg-gray-50 relative";
+
+    champ.innerHTML = `
+      <div class="grid grid-cols-3 gap-4 mb-2">
+        <input type="text" name="nom_champ[]" class="border p-2 rounded" placeholder="Nom du champ">
+        
+        <select name="type_champ[]" class="border p-2 rounded" onchange="gererAffichageOptions(this, '${champId}')">
+          <option value="text">Texte</option>
+          <option value="number">Nombre</option>
+          <option value="date">Date</option>
+          <option value="file">Fichier</option>
+          <option value="select">Liste déroulante</option>
+        </select>
+
+        <select name="source_type_champ[]" id="source-type-${champId}" class="border p-2 rounded hidden" onchange="gererSourceOptions(this, '${champId}')">
+          <option value="manual">Manuelle</option>
+          <option value="cohortes">Cohortes</option>
+          <option value="aidants">Aidants</option>
+          <option value="usagers_pro">Professionnels</option>
+        </select>
+      </div>
+
+      <div id="options-manuelles-${champId}" class="hidden mb-2">
+        <label class="text-sm font-semibold">Options manuelles :</label>
+        <div id="valeurs-possibles-${champId}" class="space-y-2 mt-1"></div>
+        <button type="button" onclick="ajouterOptionManuelleChamp('${champId}')" class="text-blue-600 text-sm hover:underline">+ Ajouter une option</button>
+      </div>
+
+      <button type="button" onclick="this.parentElement.remove()" class="absolute top-2 right-2 text-red-600">&times;</button>
+    `;
+
+    container.appendChild(champ);
+  }
+
+  function gererAffichageOptions(selectElem, champId) {
+    const valeur = selectElem.value;
+    const sourceSelect = document.getElementById(`source-type-${champId}`);
+    const optionsDiv = document.getElementById(`options-manuelles-${champId}`);
+
+    if (valeur === 'select') {
+      sourceSelect.classList.remove('hidden');
+      sourceSelect.value = "manual";
+      optionsDiv.classList.remove('hidden');
+    } else {
+      sourceSelect.classList.add('hidden');
+      optionsDiv.classList.add('hidden');
+    }
+  }
+
+  function gererSourceOptions(selectElem, champId) {
+    const manuelDiv = document.getElementById(`options-manuelles-${champId}`);
+    if (selectElem.value === 'manual') {
+      manuelDiv.classList.remove('hidden');
+    } else {
+      manuelDiv.classList.add('hidden');
+    }
+  }
+
+  function ajouterOptionManuelleChamp(champId) {
+    const container = document.getElementById(`valeurs-possibles-${champId}`);
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.name = 'valeurs_possibles[]';
+    input.placeholder = 'Option';
+    input.className = "w-full border p-2 rounded";
+    container.appendChild(input);
   }
 
   </script>

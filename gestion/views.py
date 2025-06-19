@@ -30,8 +30,16 @@ from rest_framework.generics import RetrieveAPIView
 from .models import Beneficiaire
 from urllib.parse import quote
 from .models import UsagerRI2S
+from django.views.decorators.http import require_GET
+from .models import UsagerRI2S
+from django.http import JsonResponse
+from .models import BeneficiaireExperimentation 
 
+from django.views.decorators.http import require_GET
+from django.http import JsonResponse
 from .models import ContactReferent
+from django.shortcuts import get_object_or_404, redirect
+from .models import UsagerRI2S, ExperimentationGenerale, BeneficiaireExperimentation
 
 from .serializers import BeneficiaireSerializer
 
@@ -50,6 +58,12 @@ from django.http import JsonResponse
 from .models import (
     ContactReferent, ExperimentationGenerale, ChampPersonnalise
 )
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+from .models import (
+    ContactReferent, ExperimentationGenerale, ChampPersonnalise,
+    ChampCommun, CibleExperimentation, StatutCible, ChampStatut
+)
 
 @csrf_exempt
 def create_experimentation(request):
@@ -67,7 +81,6 @@ def create_experimentation(request):
             email=request.POST.get('contactEmail', ''),
             telephone=request.POST.get('contactTel', ''),
         )
-        print("✅ Contact créé :", contact)
 
         # 2. Création de l'expérimentation
         experimentation = ExperimentationGenerale.objects.create(
@@ -78,110 +91,80 @@ def create_experimentation(request):
             remarques=request.POST.get('remarques', ''),
             contact=contact
         )
-        print("✅ Expérimentation créée :", experimentation)
 
-        # ✅ 3. Traitement des SECTIONS personnalisées (titre + champs)
-        i = 0
-        while True:
-            titre = request.POST.get(f'sections[{i}][titre]')
-            if not titre:
-                break  # Fin des sections
+        # 3. Champs communs (titre + champ)
+        titres = request.POST.getlist('titre_section[]')
+        noms = request.POST.getlist('nom_champ[]')
+        types = request.POST.getlist('type_champ[]')
+        valeurs = request.POST.getlist('valeurs_possibles[]')
+        source_types = request.POST.getlist('source_type_champ[]')
 
-            # Tu vas récupérer tous les noms, types et valeurs possibles de cette section
-            noms = request.POST.getlist(f'sections[{i}][champs][]')
-            types = request.POST.getlist(f'sections[{i}][types][]')
-            valeurs_possibles = request.POST.getlist(f'sections[{i}][valeurs][]')
+        for i in range(len(noms)):
+            type_champ = types[i]
+            source_type = source_types[i] if i < len(source_types) else 'manual'
 
-            for nom, type_, valeurs in zip(noms, types, valeurs_possibles):
-                ChampPersonnalise.objects.create(
-                    experimentation=experimentation,
-                    nom_champ=nom,
-                    type_champ=type_,
-                    valeurs_possibles=valeurs or ''
-                )
-
-            i += 1
-
-
-
-        # 4. (Optionnel) Ajout d’autres traitements (cohortes, cibles, statuts…)
-        i = 0
-        while True:
-            titre = request.POST.get(f'sections[{i}][titre]')
-            if not titre:
-                break  # fin des sections
-
-            champs = request.POST.getlist(f'sections[{i}][champs][]')
-            types = request.POST.getlist(f'sections[{i}][types][]')
-            valeurs_dyn = request.POST.getlist(f'sections[{i}][valeurs_dyn][]')
-
-            for j, nom_champ in enumerate(champs):
-                type_champ = types[j] if j < len(types) else "text"
-                valeurs_dyn_source = valeurs_dyn[j] if j < len(valeurs_dyn) else ""
-
+            if type_champ == 'select':
+                if source_type == 'manual':
+                    valeurs_possibles = valeurs[i]
+                else:
+                    valeurs_possibles = f"__SOURCE__:{source_type}"
+            else:
                 valeurs_possibles = ""
 
-                if type_champ == "select":
-                    # Cherche toutes les options manuelles envoyées sous la forme sections[i][valeurs_manuelles_champid][]
-                    champ_id_prefix = f'sections[{i}][valeurs_manuelles_'
-                    matching_keys = [key for key in request.POST.keys() if key.startswith(champ_id_prefix)]
-                    valeurs_manuelles = []
+            ChampCommun.objects.create(
+                experimentation=experimentation,
+                titre_section=titres[i] if i < len(titres) else "",
+                nom_champ=noms[i],
+                type_champ=type_champ,
+                valeurs_possibles=valeurs_possibles
+            )
+        print("------ DONNÉES FORMULAIRE POST ------")
+        for key, value in request.POST.items():
+            print(f"{key} : {value}")
 
-                    for key in matching_keys:
-                        valeurs_manuelles += request.POST.getlist(key)
 
-                    if valeurs_manuelles:
-                        valeurs_possibles = ",".join(valeurs_manuelles)
-                    elif valeurs_dyn_source:
-                        valeurs_possibles = valeurs_dyn_source  # ex: "cohortes", "aidants", etc.
 
-                # Création du champ personnalisé
-                ChampPersonnalise.objects.create(
+        # 4. Statuts et champs par cible
+        for key in request.POST.keys():
+            if key.startswith("statuts_"):
+                cible = key.replace("statuts_", "").replace("[]", "")
+                noms_statuts = request.POST.getlist(f"statuts_{cible}[]")
+
+                cible_obj = CibleExperimentation.objects.create(
                     experimentation=experimentation,
-                    nom_champ=nom_champ,
-                    type_champ=type_champ,
-                    valeurs_possibles=valeurs_possibles
+                    type_cible=cible
                 )
 
-            i += 1
+                for index, nom_statut in enumerate(noms_statuts):
+                    sc = StatutCible.objects.create(
+                        cible=cible_obj,
+                        nom_statut=nom_statut
+                    )
 
-            # 5. Traitement des cibles et statuts avec champs dynamiques
-            for key in request.POST.keys():
-                if key.startswith("statuts_"):
-                    cible = key.replace("statuts_", "").replace("[]", "")
-                    noms_statuts = request.POST.getlist(f"statuts_{cible}[]")
+                    noms = request.POST.getlist(f'champs_statut_{cible}_{index}[noms][]')
+                    types = request.POST.getlist(f'champs_statut_{cible}_{index}[types][]')
+                    source_types = request.POST.getlist(f'champs_statut_{cible}_{index}[source_type][]')
+                    champ_ids = request.POST.getlist(f'champs_statut_{cible}_{index}[champ_ids][]')
 
-                    for statut_index, nom_statut in enumerate(noms_statuts):
-                        sc = StatutCible.objects.create(
-                            cible=CibleExperimentation.objects.create(experimentation=experimentation, type_cible=cible),
-                            nom_statut=nom_statut
-                        )
+                    for j, nom_champ in enumerate(noms):
+                        type_champ = types[j] if j < len(types) else 'text'
+                        source_type = source_types[j] if j < len(source_types) else 'manual'
+                        champ_id = champ_ids[j] if j < len(champ_ids) else None
+                        valeurs = ''
 
-                        champ_index = 0
-                        while True:
-                            prefix = f'champs_statut_{cible}_{statut_index}[{champ_index}]'
-                            nom_champ = request.POST.get(f'{prefix}[nom]')
-                            if not nom_champ:
-                                break
-
-                            type_champ = request.POST.get(f'{prefix}[type]', 'text')
-                            source_type = request.POST.get(f'{prefix}[source_type]', 'manual')
-
-                            if source_type == 'manual':
-                                options = request.POST.getlist(f'{prefix}[options][]')
+                        if type_champ == 'select':
+                            if source_type == 'manual' and champ_id:
+                                options = request.POST.getlist(f'select_options_{champ_id}[]')
                                 valeurs = ','.join(options)
                             elif source_type in ['cohortes', 'aidants', 'usagers_pro']:
                                 valeurs = f'__SOURCE__:{source_type}'
-                            else:
-                                valeurs = ''
 
-                            ChampStatut.objects.create(
-                                statut=sc,
-                                nom_champ=nom_champ,
-                                type_champ=type_champ,
-                                valeurs_possibles=valeurs
-                            )
-                            champ_index += 1
+                        ChampStatut.objects.create(
+                            statut=sc,
+                            nom_champ=nom_champ,
+                            type_champ=type_champ,
+                            valeurs_possibles=valeurs
+                        )
 
         return JsonResponse({'success': True, 'redirect_url': '/menu/'})
 
@@ -189,6 +172,7 @@ def create_experimentation(request):
         import traceback
         traceback.print_exc()
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
 
 
 def liste_experimentations_view(request):
@@ -211,8 +195,38 @@ def confirmation_view(request):
 
 
 
+
 def save_beneficiaire(request):
-    return HttpResponse("Fonction save_beneficiaire à implémenter.")
+    if request.method == 'POST':
+        experimentation_id = request.POST.get("experimentation_id")
+        cible = request.POST.get("cible")
+        statut_index = request.POST.get("statut")
+        usager_id = request.POST.get("usager_id")
+
+        # 1. Récupération des objets nécessaires
+        experimentation = get_object_or_404(ExperimentationGenerale, id=experimentation_id)
+        usager = get_object_or_404(UsagerRI2S, id=usager_id)
+
+        # 2. Création du lien bénéficiaire - expérimentation
+        BeneficiaireExperimentation.objects.create(
+            usager=usager,
+            experimentation=experimentation,
+            cible=cible,
+            statut=statut_index
+        )
+
+        # 3. Ajout du rôle dynamique si pas encore présent
+        nouveau_role = f"bénéficiaire - {experimentation.nom}"
+        if nouveau_role not in usager.role:
+            usager.role.append(nouveau_role)
+            usager.save()
+
+        # 4. Redirection avec message de confirmation
+        return redirect(reverse('gestion:confirmation') + "?message=Bénéficiaire ajouté avec succès")
+
+    # Si ce n’est pas un POST, on retourne au menu
+    return redirect('gestion:menu')
+
 
 def experimentation_form_view(request):
     return render(request, 'Formulaire_Expérimentation.html')
@@ -361,7 +375,7 @@ def api_usagers_pro(request):
 
 def ajouter_usager_ri2s(request):
     if request.method == 'POST':
-        type_usager = request.POST.get('type_usager')
+        type_usager = request.POST.get('type_usager')  # 'pro' ou autre
 
         nom = request.POST.get('nom')
         prenom = request.POST.get('prenom')
@@ -386,6 +400,10 @@ def ajouter_usager_ri2s(request):
             date_naissance = request.POST.get('date_naissance')
             code_postal = request.POST.get('code_postal')
 
+            # 💡 Rôle par défaut : 'senior' ou 'aidant'
+            role_initial = request.POST.get('role', '')  # Ajoute un champ <select> dans ton formulaire
+            roles = [role_initial] if role_initial else []
+
             UsagerRI2S.objects.create(
                 nom=nom,
                 prenom=prenom,
@@ -393,17 +411,44 @@ def ajouter_usager_ri2s(request):
                 email=email,
                 date_naissance=date_naissance,
                 code_postal=code_postal,
-                sexe=sexe
+                sexe=sexe,
+                role=roles
             )
 
-        # ✅ Redirection propre après POST réussi
         return redirect('gestion:menu')
 
-    # GET : affiche le bon formulaire
     return render(request, 'ajouter_usager_ri2s.html')
 
 
+@require_GET
+def api_options_dynamiques(request):
+    source = request.GET.get("source")
+
+    if source == "cohortes":
+        data = list(ExperimentationGenerale.objects.values_list("nom", flat=True))
+    elif source == "aidants":
+        data = list(Beneficiaire.objects.filter(type_usager='aidant').values_list("nom", flat=True))
+    elif source == "usagers_pro":
+        data = list(UsagerPro.objects.values_list("nom", flat=True))
+    else:
+        return JsonResponse({"success": False, "error": "Source inconnue"}, status=400)
+
+    return JsonResponse({"success": True, "options": data})
 
 
 
+@require_GET
+def api_search_usager_ri2s(request):
+    q = request.GET.get("q", "").strip()
+    if not q:
+        return JsonResponse({"success": True, "usagers": []})
+    usagers = UsagerRI2S.objects.filter(
+        prenom__icontains=q
+    )[:10] | UsagerRI2S.objects.filter(nom__icontains=q)[:10]
+    data = [{"id": u.id, "nom": u.nom, "prenom": u.prenom} for u in usagers]
+    return JsonResponse({"success": True, "usagers": data})
 
+
+def liste_personnes_view(request):
+    usagers = UsagerRI2S.objects.all()
+    return render(request, 'liste_personnes.html', {'usagers': usagers})
