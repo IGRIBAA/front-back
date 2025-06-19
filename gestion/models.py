@@ -136,7 +136,7 @@ class UsagerPro(models.Model):
     structure = models.CharField(max_length=100)
     remarques = models.TextField(blank=True)
     date_creation = models.DateTimeField(default=timezone.now)
-
+    sexe = models.CharField(max_length=10)
     cible = models.CharField(
         max_length=30,
         choices=[

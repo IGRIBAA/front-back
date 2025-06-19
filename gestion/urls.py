@@ -44,6 +44,5 @@ urlpatterns = [
     path('save-beneficiaire/', views.save_beneficiaire, name='save_beneficiaire'),
     path('confirmation/', views.confirmation_view, name='confirmation'),
     path('liste-personnes/', views.liste_personnes_view, name='liste_personnes'),
-
 ]
 

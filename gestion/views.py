@@ -451,4 +451,4 @@ def api_search_usager_ri2s(request):
 
 def liste_personnes_view(request):
     usagers = UsagerRI2S.objects.all()
-    return render(request, 'liste_personnes.html', {'usagers': usagers})
+    return render(request, 'gestion/liste_personnes.html', {'usagers': usagers})
