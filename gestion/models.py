@@ -247,3 +247,19 @@ class BeneficiaireExperimentation(models.Model):
 
     def __str__(self):
         return f"{self.usager.nom} {self.usager.prenom} - {self.experimentation.nom} ({self.cible})"
+    
+class ValeurChampCommun(models.Model):
+    beneficiaire = models.ForeignKey(BeneficiaireExperimentation, on_delete=models.CASCADE, related_name='valeurs_champs_communs')
+    nom_champ = models.CharField(max_length=255)
+    valeur = models.TextField()
+
+    def __str__(self):
+        return f"{self.nom_champ} = {self.valeur} pour {self.beneficiaire}"
+
+class ValeurChampStatut(models.Model):
+    beneficiaire = models.ForeignKey(BeneficiaireExperimentation, on_delete=models.CASCADE, related_name='valeurs_champs_statut')
+    nom_champ = models.CharField(max_length=255)
+    valeur = models.TextField()
+
+    def __str__(self):
+        return f"{self.nom_champ} = {self.valeur} (statut) pour {self.beneficiaire}"

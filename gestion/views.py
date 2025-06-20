@@ -1,19 +1,16 @@
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.urls import reverse
-from django.views.decorators.csrf import csrf_exempt  # ✅ à ne pas oublier
+from django.views.decorators.csrf import csrf_exempt  
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.views.decorators.http import require_GET
 from .models import CibleExperimentation
-from django.http import JsonResponse
 from .models import CibleExperimentation, StatutCible
 from django.shortcuts import render
 from .models import ExperimentationGenerale
 from django.urls import reverse
-from django.http import JsonResponse
-from django.http import JsonResponse
 from .models import Beneficiaire
 from django.shortcuts import redirect
 from django.shortcuts import render, redirect
@@ -24,7 +21,7 @@ from django.shortcuts import get_object_or_404
 from .models import Beneficiaire
 from django.urls import reverse
 from .models import UsagerRI2S
-from django.http import JsonResponse
+
 from .models import CibleExperimentation, StatutCible, ChampStatut
 from rest_framework.generics import RetrieveAPIView
 from .models import Beneficiaire
@@ -32,21 +29,23 @@ from urllib.parse import quote
 from .models import UsagerRI2S
 from django.views.decorators.http import require_GET
 from .models import UsagerRI2S
-from django.http import JsonResponse
-from .models import BeneficiaireExperimentation 
 
+from .models import BeneficiaireExperimentation 
 from django.views.decorators.http import require_GET
-from django.http import JsonResponse
+from .models import ChampCommun
+from django.views.decorators.http import require_GET
+
 from .models import ContactReferent
 from django.shortcuts import get_object_or_404, redirect
 from .models import UsagerRI2S, ExperimentationGenerale, BeneficiaireExperimentation
+from .models import ValeurChampCommun, ValeurChampStatut
 
 from .serializers import BeneficiaireSerializer
 
 from django.http import HttpResponse
-from .models import ExperimentationGenerale
-from .models import UsagerPro
-from django.views.decorators.csrf import csrf_exempt
+
+
+
 import json
 
 def menu_view(request):
@@ -92,37 +91,7 @@ def create_experimentation(request):
             contact=contact
         )
 
-        # 3. Champs communs (titre + champ)
-        titres = request.POST.getlist('titre_section[]')
-        noms = request.POST.getlist('nom_champ[]')
-        types = request.POST.getlist('type_champ[]')
-        valeurs = request.POST.getlist('valeurs_possibles[]')
-        source_types = request.POST.getlist('source_type_champ[]')
-
-        for i in range(len(noms)):
-            type_champ = types[i]
-            source_type = source_types[i] if i < len(source_types) else 'manual'
-
-            if type_champ == 'select':
-                if source_type == 'manual':
-                    valeurs_possibles = valeurs[i]
-                else:
-                    valeurs_possibles = f"__SOURCE__:{source_type}"
-            else:
-                valeurs_possibles = ""
-
-            ChampCommun.objects.create(
-                experimentation=experimentation,
-                titre_section=titres[i] if i < len(titres) else "",
-                nom_champ=noms[i],
-                type_champ=type_champ,
-                valeurs_possibles=valeurs_possibles
-            )
-        print("------ DONNÉES FORMULAIRE POST ------")
-        for key, value in request.POST.items():
-            print(f"{key} : {value}")
-
-
+    
 
         # 4. Statuts et champs par cible
         for key in request.POST.keys():
@@ -195,7 +164,6 @@ def confirmation_view(request):
 
 
 
-
 def save_beneficiaire(request):
     if request.method == 'POST':
         experimentation_id = request.POST.get("experimentation_id")
@@ -203,29 +171,48 @@ def save_beneficiaire(request):
         statut_index = request.POST.get("statut")
         usager_id = request.POST.get("usager_id")
 
-        # 1. Récupération des objets nécessaires
         experimentation = get_object_or_404(ExperimentationGenerale, id=experimentation_id)
         usager = get_object_or_404(UsagerRI2S, id=usager_id)
 
-        # 2. Création du lien bénéficiaire - expérimentation
-        BeneficiaireExperimentation.objects.create(
+        # 🔸 1. Création du lien bénéficiaire
+        benef = BeneficiaireExperimentation.objects.create(
             usager=usager,
             experimentation=experimentation,
             cible=cible,
             statut=statut_index
         )
 
-        # 3. Ajout du rôle dynamique si pas encore présent
+        # 🔸 2. Ajout du rôle
         nouveau_role = f"bénéficiaire - {experimentation.nom}"
         if nouveau_role not in usager.role:
             usager.role.append(nouveau_role)
             usager.save()
 
-        # 4. Redirection avec message de confirmation
+        # 🔸 3. Enregistrer les champs COMMUNS
+        for key, val in request.POST.items():
+            if key.startswith("champ_") and not key.startswith("champ_statut_"):
+                champ_nom = key.replace("champ_", "")
+                ValeurChampCommun.objects.create(
+                    beneficiaire=benef,
+                    nom_champ=champ_nom,
+                    valeur=val
+                )
+
+        # 🔸 4. Enregistrer les champs STATUTS
+        for key, val in request.POST.items():
+            if key.startswith("champ_statut_"):
+                champ_nom = key.replace("champ_statut_", "")
+                ValeurChampStatut.objects.create(
+                    beneficiaire=benef,
+                    nom_champ=champ_nom,
+                    valeur=val
+                )
+
+        # 🔸 5. Redirection
         return redirect(reverse('gestion:confirmation') + "?message=Bénéficiaire ajouté avec succès")
 
-    # Si ce n’est pas un POST, on retourne au menu
     return redirect('gestion:menu')
+
 
 
 def experimentation_form_view(request):
@@ -307,12 +294,17 @@ def api_statuts_champs(request):
         for statut in statuts:
             resultat.append({
                 "nom_statut": statut.nom_statut,
-                "champs": [c.nom_champ for c in statut.champs.all()]
+                "champs": [
+                    {
+                        "nom_champ": c.nom_champ,
+                        "type_champ": c.type_champ,
+                        "valeurs_possibles": c.valeurs_possibles
+                    } for c in statut.champs.all()
+                ]
             })
         return JsonResponse({"success": True, "statuts": resultat})
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)})
-
 
 
 
@@ -452,3 +444,40 @@ def api_search_usager_ri2s(request):
 def liste_personnes_view(request):
     usagers = UsagerRI2S.objects.all()
     return render(request, 'gestion/liste_personnes.html', {'usagers': usagers})
+
+
+@require_GET
+def api_champs_communs(request):
+    experimentation_id = request.GET.get("experimentation_id")
+    if not experimentation_id:
+        return JsonResponse({"success": False, "error": "ID requis"})
+
+    champs = ChampCommun.objects.filter(experimentation_id=experimentation_id)
+    data = [
+        {
+            "nom_champ": champ.nom_champ,
+            "type_champ": champ.type_champ,
+            "valeurs_possibles": champ.valeurs_possibles
+        }
+        for champ in champs
+    ]
+    return JsonResponse({"success": True, "champs": data})
+
+
+
+@require_GET
+def api_champs_communs(request):
+    experimentation_id = request.GET.get("experimentation_id")
+    if not experimentation_id:
+        return JsonResponse({"success": False, "error": "ID requis"})
+
+    champs = ChampCommun.objects.filter(experimentation_id=experimentation_id)
+    data = [
+        {
+            "nom_champ": champ.nom_champ,
+            "type_champ": champ.type_champ,
+            "valeurs_possibles": champ.valeurs_possibles
+        }
+        for champ in champs
+    ]
+    return JsonResponse({"success": True, "champs": data})
